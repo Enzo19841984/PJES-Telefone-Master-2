@@ -1,0 +1,355 @@
+<script>
+/**
+ * ==========================================================
+ * SISTEMA DE TELEFONES TJES
+ * Arquivo: RegistroAlteracoesJS.html
+ * ==========================================================
+ */
+
+function carregarRegistroAlteracoes() {
+  const container =
+    document.getElementById("registro-alteracoes-container");
+
+  if (!container) return;
+
+  container.innerHTML =
+    '<div class="panel">' +
+      '<p style="text-align:center;">Carregando histórico...</p>' +
+    '</div>';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res?.sucesso) {
+        renderizarHistoricoGeral(res.dados || []);
+      } else {
+        container.innerHTML =
+          '<div class="panel">' +
+            '<p style="color:#dc2626;">Erro: ' +
+              escaparHtml(res?.erro || "Erro desconhecido.") +
+            '</p>' +
+          '</div>';
+      }
+    })
+    .withFailureHandler(erro => {
+      container.innerHTML =
+        '<div class="panel">' +
+          '<p style="color:#dc2626;">' +
+            escaparHtml(
+              erro?.message ||
+              "Falha ao carregar o histórico."
+            ) +
+          '</p>' +
+        '</div>';
+    })
+    .listarHistoricoGeral();
+}
+
+function interpretarHistorico(valor) {
+  if (!valor) return null;
+  if (typeof valor === "object") return valor;
+
+  const texto = String(valor).trim();
+
+  if (
+    !texto ||
+    texto === "{}" ||
+    texto === "null"
+  ) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(texto);
+  } catch (e) {
+    return null;
+  }
+}
+
+function valorCampo(obj, nomes) {
+  if (!obj || typeof obj !== "object") {
+    return "";
+  }
+
+  for (const nome of nomes) {
+    if (
+      Object.prototype.hasOwnProperty.call(obj, nome)
+    ) {
+      return obj[nome];
+    }
+  }
+
+  return "";
+}
+
+function normalizarHistorico(item) {
+  const antes =
+    interpretarHistorico(item.antes);
+
+  const depois =
+    interpretarHistorico(item.depois);
+
+  const usuarioBruto =
+    String(item.usuario || "").trim();
+
+  const usuarioJson =
+    interpretarHistorico(usuarioBruto);
+
+  let snapshot =
+    depois ||
+    antes ||
+    usuarioJson ||
+    {};
+
+  let usuario = usuarioBruto;
+
+  if (
+    usuarioJson &&
+    typeof usuarioJson === "object"
+  ) {
+    usuario = "";
+    snapshot = usuarioJson;
+  }
+
+  let acao =
+    String(item.acao || "").trim();
+
+  if (
+    !usuario &&
+    /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(acao)
+  ) {
+    usuario = acao;
+    acao = "CRIACAO";
+  }
+
+  return {
+    id: item.id || "",
+    telefoneId:
+      item.telefoneId ||
+      item.telefone_id ||
+      "",
+
+    comarca: String(
+      valorCampo(
+        snapshot,
+        ["comarca", "COMARCA"]
+      ) || ""
+    ).trim(),
+
+    setor: String(
+      valorCampo(
+        snapshot,
+        ["setor", "SETOR"]
+      ) || ""
+    ).trim(),
+
+    data: item.data || "-",
+    acao: acao || "-",
+    usuario: usuario || "-",
+    antes: antes,
+    depois: depois,
+    snapshot: snapshot
+  };
+}
+
+function resumirContato(obj) {
+  if (!obj) return "-";
+
+  if (typeof obj !== "object") {
+    return String(obj);
+  }
+
+  const partes = [];
+
+  const telefone =
+    valorCampo(obj, [
+      "numero",
+      "telefone",
+      "TELEFONE",
+      "NUMERO"
+    ]);
+
+  const whatsapp =
+    valorCampo(obj, [
+      "whatsapp",
+      "WHATSAPP"
+    ]);
+
+  const ramal =
+    valorCampo(obj, [
+      "ramal",
+      "RAMAL"
+    ]);
+
+  const tipo =
+    valorCampo(obj, [
+      "tipo",
+      "TIPO"
+    ]);
+
+  const status =
+    valorCampo(obj, [
+      "status",
+      "STATUS"
+    ]);
+
+  if (telefone) {
+    partes.push("Telefone: " + telefone);
+  }
+
+  if (whatsapp) {
+    partes.push("WhatsApp: " + whatsapp);
+  }
+
+  if (ramal) {
+    partes.push("Ramal: " + ramal);
+  }
+
+  if (tipo) {
+    partes.push("Tipo: " + tipo);
+  }
+
+  if (status) {
+    partes.push("Status: " + status);
+  }
+
+  return partes.length
+    ? partes.join(" • ")
+    : "-";
+}
+
+function imprimirRegistroAlteracoes() {
+  const tituloOriginal =
+    document.title;
+
+  const tituloInterface =
+    document
+      .querySelector(".system-title h1")
+      ?.textContent
+      .replace(/\s+/g, " ")
+      .trim() ||
+    "SISTEMA INTELIGENTE DE GESTÃO DE TELEFONES DO PJES";
+
+  /*
+   * Mantém o mesmo comportamento da impressão
+   * da consulta de telefones:
+   * - mesma página;
+   * - cabeçalho do Chrome com o título da interface;
+   * - rodapé com a URL original;
+   * - sem abrir about:blank.
+   */
+  document.title =
+    tituloInterface;
+
+  window.addEventListener(
+    "afterprint",
+    function restaurarTitulo() {
+      document.title =
+        tituloOriginal;
+
+      window.removeEventListener(
+        "afterprint",
+        restaurarTitulo
+      );
+    },
+    { once: true }
+  );
+
+  window.print();
+}
+
+function renderizarHistoricoGeral(dados) {
+  const container =
+    document.getElementById(
+      "registro-alteracoes-container"
+    );
+
+  if (!container) return;
+
+  const registros =
+    Array.isArray(dados)
+      ? dados.map(normalizarHistorico)
+      : [];
+
+  const vazio =
+    registros.length === 0;
+
+  let html =
+    '<div class="panel registro-panel">' +
+
+      '<div class="registro-header">' +
+
+        '<h2>Registro de Alterações</h2>' +
+
+        '<button ' +
+          'type="button" ' +
+          'class="btn btn-secondary" ' +
+          'onclick="imprimirRegistroAlteracoes()">' +
+          '🖨️ Imprimir / PDF' +
+        '</button>' +
+
+      '</div>';
+
+  if (vazio) {
+    html +=
+      '<p class="registro-vazio">' +
+        'Nenhuma alteração registrada.' +
+      '</p>';
+  }
+
+  html +=
+    '<div class="table-panel registro-tabela-panel">' +
+      '<table class="data-table registro-tabela">' +
+        '<thead>' +
+          '<tr>' +
+            '<th>Comarca</th>' +
+            '<th>Setor</th>' +
+            '<th>Data</th>' +
+            '<th>Ação</th>' +
+            '<th>Usuário</th>' +
+            '<th>Antes</th>' +
+            '<th>Depois</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>';
+
+  registros.forEach(item => {
+    const antes = resumirContato(item.antes);
+    const depois = resumirContato(
+      item.depois || item.snapshot
+    );
+
+    html +=
+      '<tr>' +
+        '<td>' + escaparHtml(item.comarca || "-") + '</td>' +
+        '<td>' + escaparHtml(item.setor || "-") + '</td>' +
+        '<td>' + escaparHtml(item.data || "-") + '</td>' +
+        '<td>' + escaparHtml(item.acao || "-") + '</td>' +
+        '<td>' + escaparHtml(item.usuario || "-") + '</td>' +
+        '<td>' + escaparHtml(antes) + '</td>' +
+        '<td>' + escaparHtml(depois) + '</td>' +
+      '</tr>';
+  });
+
+  html +=
+        '</tbody>' +
+      '</table>' +
+    '</div>' +
+  '</div>';
+
+  container.innerHTML = html;
+}
+
+function escaparHtml(valor) {
+  return String(
+    valor === null ||
+    valor === undefined
+      ? ""
+      : valor
+  )
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+</script>

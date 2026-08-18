@@ -1,0 +1,736 @@
+<script>
+/**
+ * ==========================================================
+ * SISTEMA DE TELEFONES TJES
+ * Arquivo: UsuariosJS.html
+ * ==========================================================
+ */
+
+var comarcasSelecao = [];
+var novoUsuarioSeletorComarcas = null;
+
+function normalizarComarcaKey(valor) {
+  return String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase();
+}
+
+function carregarUsuarios() {
+  if (
+    typeof API === "undefined" ||
+    typeof API.listarUsuarios !== "function"
+  ) {
+    return;
+  }
+
+  carregarComarcasParaSelecao();
+
+  API.listarUsuarios(
+    function(resposta) {
+      if (!resposta || resposta.sucesso !== true) {
+        exibirErroUsuarios(
+          (resposta && resposta.erro) || "Erro ao carregar usuários."
+        );
+        return;
+      }
+      renderizarUsuarios(
+        Array.isArray(resposta.dados) ? resposta.dados : []
+      );
+    },
+    function(erro) {
+      exibirErroUsuarios(
+        (erro && erro.message) || "Falha de comunicação com o servidor."
+      );
+    }
+  );
+}
+
+function carregarComarcasParaSelecao() {
+  if (
+    typeof API !== "undefined" &&
+    typeof API.listarComarcas === "function"
+  ) {
+    API.listarComarcas(
+      function(resposta) {
+        if (resposta && resposta.sucesso === true && Array.isArray(resposta.dados)) {
+          comarcasSelecao = resposta.dados;
+        } else {
+          comarcasSelecao = comarcasDeTelefonesLocais();
+        }
+      },
+      function() {
+        comarcasSelecao = comarcasDeTelefonesLocais();
+      }
+    );
+  } else {
+    comarcasSelecao = comarcasDeTelefonesLocais();
+  }
+}
+
+function comarcasDeTelefonesLocais() {
+  var comarcas = {};
+
+  if (
+    typeof listaTelefones !== "undefined" &&
+    Array.isArray(listaTelefones)
+  ) {
+    listaTelefones.forEach(function(item) {
+      var comarca = String(
+        (item && (item.comarca || item.COMARCA)) || ""
+      ).trim();
+
+      if (comarca && !comarcas[comarca]) {
+        comarcas[comarca] = true;
+      }
+    });
+  }
+
+  return Object.keys(comarcas).sort(function(a, b) {
+    return a.localeCompare(b, "pt-BR");
+  });
+}
+
+/**
+ * Seletor de comarcas (menu suspenso com busca + checkboxes).
+ * Retorna { elemento, obterValor } — obterValor devolve as
+ * comarcas selecionadas separadas por vírgula.
+ * Vazio significa todas as comarcas (sem restrição).
+ */
+function criarSeletorComarcas(valorInicial) {
+  var selecionadas = {};
+
+  String(valorInicial || "")
+    .split(/[,;\n|]+/)
+    .forEach(function(nome) {
+      nome = String(nome || "").trim();
+      if (nome) {
+        selecionadas[normalizarComarcaKey(nome)] = nome;
+      }
+    });
+
+  var wrapper = document.createElement("div");
+  wrapper.className = "usuario-comarcas-picker";
+  wrapper.style.cssText = "position:relative;";
+
+  var botao = document.createElement("button");
+  botao.type = "button";
+  botao.className = "btn btn-secondary";
+  botao.style.cssText =
+    "width:100%;padding:7px 10px;font-size:12px;text-align:left;" +
+    "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" +
+    "background:#ffffff;border:1px solid #cbd5e1;color:#334155;" +
+    "display:flex;align-items:center;justify-content:space-between;gap:6px;";
+
+  var botaoTexto = document.createElement("span");
+  botaoTexto.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;";
+  var botaoSeta = document.createElement("span");
+  botaoSeta.textContent = "▾";
+  botaoSeta.style.cssText = "color:#94a3b8;font-size:10px;flex:0 0 auto;";
+  botao.appendChild(botaoTexto);
+  botao.appendChild(botaoSeta);
+
+  var painel = document.createElement("div");
+  painel.className = "hidden";
+  painel.dataset.fixed = "0";
+  painel.style.cssText =
+    "position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:9999;" +
+    "background:#ffffff;border:1.5px solid #cbd5e1;border-radius:10px;" +
+    "box-shadow:0 12px 28px -10px rgba(15,23,42,0.25);padding:8px;" +
+    "max-height:320px;display:flex;flex-direction:column;";
+
+  var busca = document.createElement("input");
+  busca.type = "search";
+  busca.placeholder = "Buscar comarca...";
+  busca.style.cssText =
+    "padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;" +
+    "font-size:12px;margin-bottom:6px;box-sizing:border-box;width:100%;";
+
+  var lista = document.createElement("div");
+  lista.style.cssText = "overflow-y:auto;flex:1;min-height:60px;";
+
+  var rodape = document.createElement("div");
+  rodape.style.cssText =
+    "display:flex;justify-content:space-between;gap:8px;margin-top:8px;" +
+    "border-top:1px solid #f1f5f9;padding-top:8px;";
+
+  var btnLimpar = document.createElement("button");
+  btnLimpar.type = "button";
+  btnLimpar.className = "btn btn-secondary";
+  btnLimpar.textContent = "Limpar";
+  btnLimpar.style.cssText = "padding:5px 10px;font-size:11px;background:#f8fafc;color:#475569;border:1px solid #e2e8f0;";
+
+  var btnFechar = document.createElement("button");
+  btnFechar.type = "button";
+  btnFechar.className = "btn btn-primary";
+  btnFechar.textContent = "OK";
+  btnFechar.style.cssText = "padding:5px 14px;font-size:11px;";
+
+  rodape.appendChild(btnLimpar);
+  rodape.appendChild(btnFechar);
+
+  painel.appendChild(busca);
+  painel.appendChild(lista);
+  painel.appendChild(rodape);
+  wrapper.appendChild(botao);
+  wrapper.appendChild(painel);
+
+  function atualizarBotao() {
+    var nomes = Object.keys(selecionadas).map(function(key) {
+      return selecionadas[key];
+    });
+    if (nomes.length === 0) {
+      botaoTexto.textContent = "Todas as comarcas";
+      botao.title = "Sem restrição — pode editar todas as comarcas";
+      botao.style.color = "#64748b";
+      botao.style.fontStyle = "italic";
+    } else {
+      var texto = nomes.join(", ");
+      botaoTexto.textContent =
+        nomes.length + " comarca" + (nomes.length > 1 ? "s" : "") +
+        (texto.length > 42 ? ": " + texto.slice(0, 39) + "…" : ": " + texto);
+      botao.title = texto;
+      botao.style.color = "#1e293b";
+      botao.style.fontStyle = "normal";
+    }
+  }
+
+  function renderizarLista() {
+    lista.textContent = "";
+
+    if (comarcasSelecao.length === 0) {
+      var aviso = document.createElement("div");
+      aviso.style.cssText =
+        "padding:10px;font-size:12px;color:#94a3b8;text-align:center;";
+      aviso.textContent = "Nenhuma comarca cadastrada";
+      lista.appendChild(aviso);
+      return;
+    }
+
+    var termo = normalizarComarcaKey(busca.value);
+
+    var filtradas = termo
+      ? comarcasSelecao.filter(function(nome) {
+          return normalizarComarcaKey(nome).includes(termo);
+        })
+      : comarcasSelecao.slice();
+
+    if (filtradas.length === 0) {
+      var vazio = document.createElement("div");
+      vazio.style.cssText =
+        "padding:10px;font-size:12px;color:#94a3b8;text-align:center;";
+      vazio.textContent = "Nenhuma comarca encontrada";
+      lista.appendChild(vazio);
+      return;
+    }
+
+    filtradas.forEach(function(nome) {
+      var label = document.createElement("label");
+      label.style.cssText =
+        "display:flex;align-items:center;justify-content:flex-start;gap:8px;padding:6px 8px;" +
+        "border-radius:8px;font-size:13px;cursor:pointer;width:100%;box-sizing:border-box;";
+      label.addEventListener("mouseenter", function(){ label.style.background = "#f8fafc"; });
+      label.addEventListener("mouseleave", function(){ label.style.background = "transparent"; });
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.style.cssText = "width:16px;height:16px;flex:0 0 16px;margin:0;accent-color:#2563eb;";
+      checkbox.checked = !!selecionadas[normalizarComarcaKey(nome)];
+
+      checkbox.addEventListener("change", function() {
+        var chave = normalizarComarcaKey(nome);
+        if (checkbox.checked) {
+          selecionadas[chave] = nome;
+        } else {
+          delete selecionadas[chave];
+        }
+        atualizarBotao();
+      });
+
+      var span = document.createElement("span");
+      span.textContent = nome;
+      span.style.cssText = "flex:1 1 auto;min-width:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+
+      label.appendChild(checkbox);
+      label.appendChild(span);
+      lista.appendChild(label);
+    });
+  }
+
+  function posicionarPainelFixamente() {
+    try {
+      var rect = botao.getBoundingClientRect();
+      var vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+      var vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+      var width = Math.min(Math.max(rect.width, 280), 360);
+      // limit to viewport with margin
+      if (rect.left + width > vw - 12) {
+        width = Math.max(260, vw - rect.left - 12);
+      }
+      painel.style.position = "fixed";
+      painel.style.left = rect.left + "px";
+      painel.style.top = (rect.bottom + 6) + "px";
+      painel.style.right = "auto";
+      painel.style.width = width + "px";
+      painel.style.maxHeight = Math.min(320, vh - rect.bottom - 16) + "px";
+      painel.style.zIndex = "9999";
+      painel.dataset.fixed = "1";
+    } catch (e) {}
+  }
+
+  function restaurarPainelAbsoluto() {
+    painel.style.position = "absolute";
+    painel.style.left = "0";
+    painel.style.right = "0";
+    painel.style.top = "calc(100% + 4px)";
+    painel.style.width = "";
+    painel.style.maxHeight = "320px";
+    painel.dataset.fixed = "0";
+  }
+
+  botao.addEventListener("click", function(evento) {
+    evento.stopPropagation();
+
+    var fechado = painel.classList.contains("hidden");
+
+    document.querySelectorAll(".usuario-comarcas-picker > div").forEach(function(outro) {
+      if (outro !== painel) {
+        outro.classList.add("hidden");
+        // restore any fixed panels that were closed
+        try { outro.style.position = "absolute"; outro.dataset.fixed = "0"; } catch(e2){}
+      }
+    });
+
+    if (fechado) {
+      renderizarLista();
+      posicionarPainelFixamente();
+      painel.classList.remove("hidden");
+      // reposition after render in case height changed
+      setTimeout(posicionarPainelFixamente, 0);
+      busca.focus();
+    } else {
+      painel.classList.add("hidden");
+      restaurarPainelAbsoluto();
+    }
+  });
+
+  // Reposition on scroll/resize while open, and restore when closed
+  window.addEventListener("scroll", function(){
+    if (!painel.classList.contains("hidden") && painel.dataset.fixed === "1") posicionarPainelFixamente();
+  }, true);
+  window.addEventListener("resize", function(){
+    if (!painel.classList.contains("hidden") && painel.dataset.fixed === "1") posicionarPainelFixamente();
+  });
+
+  busca.addEventListener("input", renderizarLista);
+
+  btnLimpar.addEventListener("click", function() {
+    selecionadas = {};
+    renderizarLista();
+    atualizarBotao();
+  });
+
+  btnFechar.addEventListener("click", function() {
+    painel.classList.add("hidden");
+  });
+
+  document.addEventListener("click", function fecharFora(evento) {
+    if (!wrapper.contains(evento.target) && !painel.contains(evento.target)) {
+      painel.classList.add("hidden");
+      restaurarPainelAbsoluto();
+    }
+  });
+
+  atualizarBotao();
+
+  return {
+    elemento: wrapper,
+    obterValor: function() {
+      return Object.keys(selecionadas)
+        .map(function(key) {
+          return selecionadas[key];
+        })
+        .join(", ");
+    }
+  };
+}
+
+function exibirErroUsuarios(mensagem) {
+  var tbody = document.getElementById("corpo-tabela-usuarios");
+  if (!tbody) return;
+
+  tbody.textContent = "";
+
+  var tr = document.createElement("tr");
+  var td = document.createElement("td");
+
+  td.colSpan = 6;
+  td.textContent = "⚠️ " + String(mensagem || "");
+  td.style.textAlign = "center";
+  td.style.color = "#dc2626";
+  td.style.padding = "20px";
+
+  tr.appendChild(td);
+  tbody.appendChild(tr);
+}
+
+function renderizarUsuarios(lista) {
+  var tbody = document.getElementById("corpo-tabela-usuarios");
+  if (!tbody) return;
+
+  tbody.textContent = "";
+
+  if (lista.length === 0) {
+    var tr = document.createElement("tr");
+    var td = document.createElement("td");
+
+    td.colSpan = 6;
+    td.textContent = "Nenhum usuário com acesso administrativo cadastrado.";
+    td.style.textAlign = "center";
+    td.style.color = "#64748b";
+    td.style.padding = "20px";
+
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+
+  lista.forEach(function(usuario) {
+    var tr = document.createElement("tr");
+
+    tr.appendChild(criarCelulaUsuario(usuario.email || ""));
+    tr.appendChild(criarCelulaUsuario(usuario.nome || ""));
+
+    var tdPerfil = criarCelulaUsuario("");
+    var selectPerfil = document.createElement("select");
+    selectPerfil.className = "usuario-perfil-select";
+    selectPerfil.style.width = "100%";
+    selectPerfil.style.padding = "6px 8px";
+    selectPerfil.style.borderRadius = "8px";
+    selectPerfil.style.border = "1px solid #cbd5e1";
+    selectPerfil.style.background = "#ffffff";
+    selectPerfil.style.fontSize = "13px";
+
+    var perfis = [
+      { valor: "GESTOR_SISTEMA", rotulo: "Gestor do Sistema" },
+      { valor: "GESTOR_CONTEUDO", rotulo: "Gestor de Conteúdo" }
+    ];
+
+    perfis.forEach(function(opcao) {
+      var option = document.createElement("option");
+      option.value = opcao.valor;
+      option.textContent = opcao.rotulo;
+      selectPerfil.appendChild(option);
+    });
+
+    var perfilAtual = String(usuario.perfil || "").toUpperCase();
+    selectPerfil.value =
+      ["GESTOR_SISTEMA", "GESTOR_CONTEUDO"].includes(perfilAtual)
+        ? perfilAtual
+        : "GESTOR_CONTEUDO";
+
+    tdPerfil.appendChild(selectPerfil);
+    tr.appendChild(tdPerfil);
+
+    var tdComarcas = criarCelulaUsuario("");
+
+    var seletorComarcas = criarSeletorComarcas(usuario.comarcas || "");
+
+    tdComarcas.appendChild(seletorComarcas.elemento);
+    tr.appendChild(tdComarcas);
+
+    var tdAtivo = criarCelulaUsuario("");
+    tdAtivo.style.textAlign = "center";
+
+    var checkboxAtivo = document.createElement("input");
+    checkboxAtivo.type = "checkbox";
+    checkboxAtivo.checked = usuario.ativo === true;
+    checkboxAtivo.className = "usuario-ativo-checkbox";
+
+    tdAtivo.appendChild(checkboxAtivo);
+    tr.appendChild(tdAtivo);
+
+    var tdAcoes = criarCelulaUsuario("");
+    tdAcoes.style.textAlign = "center";
+    tdAcoes.style.whiteSpace = "nowrap";
+
+    var botaoSalvar = document.createElement("button");
+    botaoSalvar.type = "button";
+    botaoSalvar.className = "btn btn-primary";
+    botaoSalvar.textContent = "Salvar";
+    botaoSalvar.style.padding = "5px 12px";
+    botaoSalvar.style.fontSize = "12px";
+
+    botaoSalvar.addEventListener("click", function() {
+      salvarUsuario(
+        usuario.email,
+        selectPerfil.value,
+        checkboxAtivo.checked,
+        seletorComarcas.obterValor(),
+        botaoSalvar
+      );
+    });
+
+    var botaoExcluir = document.createElement("button");
+    botaoExcluir.type = "button";
+    botaoExcluir.className = "btn btn-danger";
+    botaoExcluir.textContent = "Excluir";
+    botaoExcluir.style.padding = "5px 12px";
+    botaoExcluir.style.fontSize = "12px";
+    botaoExcluir.style.marginLeft = "6px";
+
+    botaoExcluir.addEventListener("click", function() {
+      excluirUsuario(usuario.email, botaoExcluir);
+    });
+
+    tdAcoes.appendChild(botaoSalvar);
+    tdAcoes.appendChild(botaoExcluir);
+    tr.appendChild(tdAcoes);
+
+    tbody.appendChild(tr);
+  });
+}
+
+function criarCelulaUsuario(valor) {
+  var td = document.createElement("td");
+
+  var texto = String(valor === null || valor === undefined ? "" : valor).trim();
+  td.textContent = texto;
+  td.style.fontSize = "13px";
+  if (!texto) {
+    td.style.color = "#94a3b8";
+  }
+
+  return td;
+}
+
+function salvarUsuario(email, perfil, ativo, comarcas, botao) {
+  if (
+    !confirm(
+      "Salvar alterações para " + email + "?\n\n" +
+      "Perfil: " + perfil + "\n" +
+      "Ativo: " + (ativo ? "SIM" : "NÃO") + "\n" +
+      "Comarcas: " + (String(comarcas || "").trim() || "Todas")
+    )
+  ) {
+    return;
+  }
+
+  var textoOriginal = botao.textContent;
+  botao.disabled = true;
+  botao.textContent = "Salvando...";
+
+  API.atualizarUsuario(
+    email,
+    {
+      perfil: perfil,
+      ativo: ativo,
+      comarcas: comarcas
+    },
+    function(resposta) {
+      botao.disabled = false;
+      botao.textContent = textoOriginal;
+
+      if (!resposta || resposta.sucesso !== true) {
+        mostrarToast(
+          (resposta && resposta.erro) || "Erro ao salvar usuário.",
+          "error"
+        );
+        return;
+      }
+
+      mostrarToast("Usuário atualizado com sucesso!", "success");
+
+      carregarUsuarios();
+    },
+    function(erro) {
+      botao.disabled = false;
+      botao.textContent = textoOriginal;
+
+      mostrarToast(
+        (erro && erro.message) || "Falha de comunicação com o servidor.",
+        "error"
+      );
+    }
+  );
+}
+
+function excluirUsuario(email, botao) {
+  if (!confirm("Remover o acesso de " + email + "?\n\nEsta ação exclui o usuário da lista e não pode ser desfeita.")) {
+    return;
+  }
+
+  var textoOriginal = botao ? botao.textContent : "";
+  if (botao) {
+    botao.disabled = true;
+    botao.textContent = "Excluindo...";
+  }
+
+  API.excluirUsuario(
+    email,
+    function(resposta) {
+      if (botao) {
+        botao.disabled = false;
+        botao.textContent = textoOriginal || "Excluir";
+      }
+      if (!resposta || resposta.sucesso !== true) {
+        mostrarToast((resposta && resposta.erro) || "Erro ao excluir usuário.", "error");
+        return;
+      }
+      mostrarToast("Usuário excluído com sucesso.", "success");
+      carregarUsuarios();
+    },
+    function(erro) {
+      if (botao) {
+        botao.disabled = false;
+        botao.textContent = textoOriginal || "Excluir";
+      }
+      mostrarToast((erro && erro.message) || "Falha de comunicação com o servidor.", "error");
+    }
+  );
+}
+
+// --- Modal Adicionar usuário ---
+
+function abrirModalAdicionarUsuario() {
+  var modal = document.getElementById("modal-adicionar-usuario");
+  if (!modal) return;
+
+  var emailInput = document.getElementById("novo-usuario-email");
+  var nomeInput = document.getElementById("novo-usuario-nome");
+  var perfilSelect = document.getElementById("novo-usuario-perfil");
+  var ativoCheck = document.getElementById("novo-usuario-ativo");
+  var erroDiv = document.getElementById("novo-usuario-erro");
+  var container = document.getElementById("novo-usuario-comarcas-container");
+
+  if (emailInput) emailInput.value = "";
+  if (nomeInput) nomeInput.value = "";
+  if (perfilSelect) perfilSelect.value = "GESTOR_CONTEUDO";
+  if (ativoCheck) ativoCheck.checked = true;
+  if (erroDiv) {
+    erroDiv.textContent = "";
+    erroDiv.classList.add("hidden");
+  }
+  if (container) {
+    container.textContent = "";
+    // garante comarcas carregadas
+    if (comarcasSelecao.length === 0) {
+      carregarComarcasParaSelecao();
+    }
+    novoUsuarioSeletorComarcas = criarSeletorComarcas("");
+    container.appendChild(novoUsuarioSeletorComarcas.elemento);
+  }
+
+  alternarComarcasNovoUsuario();
+
+  modal.classList.remove("hidden");
+  if (emailInput) emailInput.focus();
+}
+
+function fecharModalAdicionarUsuario() {
+  var modal = document.getElementById("modal-adicionar-usuario");
+  if (modal) modal.classList.add("hidden");
+  var erroDiv = document.getElementById("novo-usuario-erro");
+  if (erroDiv) {
+    erroDiv.textContent = "";
+    erroDiv.classList.add("hidden");
+  }
+}
+
+function alternarComarcasNovoUsuario() {
+  var perfil = document.getElementById("novo-usuario-perfil");
+  var grupo = document.getElementById("grupo-novo-usuario-comarcas");
+  if (!perfil || !grupo) return;
+  if (perfil.value === "GESTOR_SISTEMA") {
+    grupo.style.display = "none";
+    grupo.title = "Gestor do Sistema tem acesso a todas as comarcas";
+  } else {
+    grupo.style.display = "";
+    grupo.title = "";
+  }
+}
+
+function mostrarErroNovoUsuario(mensagem) {
+  var erroDiv = document.getElementById("novo-usuario-erro");
+  if (!erroDiv) return;
+  erroDiv.textContent = String(mensagem || "");
+  erroDiv.classList.remove("hidden");
+}
+
+function salvarNovoUsuario() {
+  var emailInput = document.getElementById("novo-usuario-email");
+  var nomeInput = document.getElementById("novo-usuario-nome");
+  var perfilSelect = document.getElementById("novo-usuario-perfil");
+  var ativoCheck = document.getElementById("novo-usuario-ativo");
+  var btn = document.getElementById("btn-salvar-novo-usuario");
+
+  var email = emailInput ? String(emailInput.value || "").trim() : "";
+  var nome = nomeInput ? String(nomeInput.value || "").trim() : "";
+  var perfil = perfilSelect ? String(perfilSelect.value || "").trim().toUpperCase() : "";
+  var ativo = ativoCheck ? !!ativoCheck.checked : true;
+  var comarcas = novoUsuarioSeletorComarcas ? novoUsuarioSeletorComarcas.obterValor() : "";
+
+  // validação local rápida
+  if (!email) {
+    mostrarErroNovoUsuario("Informe o e-mail do usuário.");
+    if (emailInput) emailInput.focus();
+    return;
+  }
+  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    mostrarErroNovoUsuario("Informe um e-mail válido.");
+    return;
+  }
+  if (!email.toLowerCase().endsWith("@tjes.jus.br")) {
+    mostrarErroNovoUsuario("Somente e-mails @tjes.jus.br são permitidos.");
+    return;
+  }
+  if (perfil !== "GESTOR_SISTEMA" && perfil !== "GESTOR_CONTEUDO") {
+    mostrarErroNovoUsuario("Selecione um perfil válido.");
+    return;
+  }
+  if (perfil === "GESTOR_SISTEMA") {
+    comarcas = "";
+  }
+
+  var erroDiv = document.getElementById("novo-usuario-erro");
+  if (erroDiv) {
+    erroDiv.textContent = "";
+    erroDiv.classList.add("hidden");
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Adicionando...";
+  }
+
+  API.criarUsuario(
+    {
+      email: email,
+      nome: nome,
+      perfil: perfil,
+      ativo: ativo,
+      comarcas: comarcas
+    },
+    function(resposta) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Adicionar";
+      }
+      if (!resposta || resposta.sucesso !== true) {
+        mostrarErroNovoUsuario((resposta && resposta.erro) || "Erro ao adicionar usuário.");
+        return;
+      }
+      mostrarToast("Usuário adicionado com sucesso!", "success");
+      fecharModalAdicionarUsuario();
+      carregarUsuarios();
+    },
+    function(erro) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Adicionar";
+      }
+      mostrarErroNovoUsuario((erro && erro.message) || "Falha de comunicação com o servidor.");
+    }
+  );
+}
+</script>

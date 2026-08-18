@@ -1,0 +1,2127 @@
+<script>
+/**
+ * ==========================================================
+ * SISTEMA DE TELEFONES TJES
+ * Arquivo: TableJS.html
+ * ==========================================================
+ */
+
+let listaTelefones = [];
+let idTelefoneParaExcluir = null;
+
+let historicoDadosCache = [];
+let historicoInfoTelefone = "";
+let ordemHistoricoAtual = "desc";
+
+function codificarParametro(valor) {
+  return encodeURIComponent(
+    String(
+      valor === null ||
+      valor === undefined
+        ? ""
+        : valor
+    )
+  );
+}
+
+function decodificarParametro(valor) {
+  try {
+    return decodeURIComponent(
+      String(valor || "")
+    );
+  } catch (erro) {
+    return String(valor || "");
+  }
+}
+
+function normalizarChaveTabela(valor) {
+  return String(
+    valor === null ||
+    valor === undefined
+      ? ""
+      : valor
+  )
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /[^a-zA-Z0-9]/g,
+      ""
+    )
+    .toUpperCase();
+}
+
+/**
+ * Comarcas em que o usuário logado pode editar telefones.
+ *
+ * - GESTOR_SISTEMA: todas (null).
+ * - GESTOR_CONTEUDO: somente as da coluna COMARCAS
+ *   (lista vazia = todas, retorna null).
+ * - Demais perfis: nenhuma ([]).
+ */
+function comarcasPermitidasDoUsuario() {
+  if (
+    typeof usuarioAtual === "undefined" ||
+    !usuarioAtual
+  ) {
+    return [];
+  }
+
+  const perfil =
+    usuarioAtual.perfil || "";
+
+  if (perfil === "GESTOR_SISTEMA") {
+    return null;
+  }
+
+  if (perfil !== "GESTOR_CONTEUDO") {
+    return [];
+  }
+
+  const comarcas =
+    Array.isArray(usuarioAtual.comarcas)
+      ? usuarioAtual.comarcas
+      : [];
+
+  if (comarcas.length === 0) {
+    return null;
+  }
+
+  return comarcas.map(item =>
+    normalizarChaveTabela(item)
+  );
+}
+
+/**
+ * Indica se o usuário atual pode editar/excluir
+ * telefones da comarca informada.
+ */
+function podeEditarComarca(comarca) {
+  const permitidas =
+    comarcasPermitidasDoUsuario();
+
+  // null = todas as comarcas
+  if (permitidas === null) {
+    return true;
+  }
+
+  return permitidas.includes(
+    normalizarChaveTabela(
+      comarca || ""
+    )
+  );
+}
+
+/**
+ * Evita reenvio: após solicitar acesso a uma comarca,
+ * o botão fica bloqueado por 10 minutos (mesmo recarregando).
+ */
+function chaveSolicitacaoComarca(comarca) {
+  const email =
+    (typeof usuarioAtual !== "undefined" && usuarioAtual && usuarioAtual.email) || "";
+  return "pjes_solicitada_" + normalizarChaveTabela(email) + "_" + normalizarChaveTabela(comarca);
+}
+
+function comarcaSolicitadaHaPouco(comarca) {
+  try {
+    const chave =
+      chaveSolicitacaoComarca(comarca);
+
+    const registrado =
+      window.sessionStorage.getItem(chave);
+
+    if (!registrado) {
+      return false;
+    }
+
+    const quando = Number(registrado);
+
+    if (!quando || isNaN(quando)) {
+      return false;
+    }
+
+    const limite = 10 * 60 * 1000;
+
+    if (Date.now() - quando < limite) {
+      return true;
+    }
+
+    window.sessionStorage.removeItem(chave);
+    return false;
+  } catch (erro) {
+    return false;
+  }
+}
+
+function marcarComarcaSolicitada(comarca) {
+  try {
+    window.sessionStorage.setItem(
+      chaveSolicitacaoComarca(comarca),
+      String(Date.now())
+    );
+  } catch (erro) {
+    // sem armazenamento disponível: apenas não bloqueia
+  }
+}
+
+function solicitarAcessoComarca(comarca, botao) {
+  if (
+    typeof API === "undefined" ||
+    typeof API.solicitarPermissaoComarca !== "function"
+  ) {
+    notificarTabela(
+      "Recurso indisponível neste momento.",
+      "error"
+    );
+
+    return;
+  }
+
+  const textoOriginal =
+    botao ? botao.textContent : "";
+
+  if (botao) {
+    botao.disabled = true;
+    botao.textContent = "Enviando...";
+  }
+
+  API.solicitarPermissaoComarca(
+    comarca,
+    function(resposta) {
+      if (!resposta || resposta.sucesso !== true) {
+        if (botao) {
+          botao.disabled = false;
+          botao.textContent = textoOriginal || "🔓 Solicitar acesso";
+        }
+
+        notificarTabela(
+          resposta && resposta.erro
+            ? resposta.erro
+            : "Erro ao enviar a solicitação.",
+          "error"
+        );
+
+        return;
+      }
+
+      marcarComarcaSolicitada(comarca);
+
+      if (botao) {
+        botao.textContent = "✓ Solicitado";
+      }
+
+      notificarTabela(
+        "Solicitação enviada ao Gestor do Sistema. Você será avisado por e-mail quando o acesso for liberado.",
+        "success"
+      );
+    },
+    function(erro) {
+      if (botao) {
+        botao.disabled = false;
+        botao.textContent = textoOriginal || "🔓 Solicitar acesso";
+      }
+
+      notificarTabela(
+        erro && erro.message
+          ? erro.message
+          : "Erro ao enviar a solicitação.",
+        "error"
+      );
+    }
+  );
+}
+
+function valorCampoTelefone(
+  item,
+  ...nomes
+) {
+  if (!item) {
+    return "";
+  }
+
+  const chaves =
+    Object.keys(item);
+
+  for (const nome of nomes) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        item,
+        nome
+      )
+    ) {
+      return item[nome];
+    }
+
+    const normalizado =
+      normalizarChaveTabela(
+        nome
+      );
+
+    const encontrado =
+      chaves.find(chave => {
+        return (
+          normalizarChaveTabela(
+            chave
+          ) === normalizado
+        );
+      });
+
+    if (
+      encontrado !== undefined
+    ) {
+      return item[encontrado];
+    }
+  }
+
+  return "";
+}
+
+function obterIdTelefone(item) {
+  return String(
+    valorCampoTelefone(
+      item,
+      "ID",
+      "id"
+    ) || ""
+  ).trim();
+}
+
+function textoTabela(
+  valor,
+  fallback
+) {
+  const texto =
+    String(
+      valor === null ||
+      valor === undefined
+        ? ""
+        : valor
+    ).trim();
+
+  return (
+    texto ||
+    fallback ||
+    ""
+  );
+}
+
+function obterMensagemErro(
+  erro,
+  fallback
+) {
+  if (
+    erro &&
+    erro.message
+  ) {
+    return String(
+      erro.message
+    );
+  }
+
+  if (
+    typeof erro === "string" &&
+    erro.trim()
+  ) {
+    return erro;
+  }
+
+  return (
+    fallback ||
+    "Ocorreu um erro inesperado."
+  );
+}
+
+function notificarTabela(
+  mensagem,
+  tipo
+) {
+  if (
+    typeof mostrarToast ===
+    "function"
+  ) {
+    mostrarToast(
+      mensagem,
+      tipo || "info"
+    );
+  } else {
+    alert(mensagem);
+  }
+}
+
+function criarCelulaTexto(
+  valor,
+  alinhamento
+) {
+  const td =
+    document.createElement(
+      "td"
+    );
+
+  if (alinhamento) {
+    td.style.textAlign =
+      alinhamento;
+  }
+
+  const texto =
+    textoTabela(valor);
+
+  if (texto) {
+    td.textContent =
+      texto;
+  } else {
+    const vazio =
+      document.createElement(
+        "span"
+      );
+
+    vazio.textContent =
+      "-";
+
+    vazio.style.color =
+      "#94a3b8";
+
+    vazio.style.fontWeight =
+      "500";
+
+    td.appendChild(vazio);
+  }
+
+  return td;
+}
+
+function criarCelulaTipo(
+  tipo
+) {
+  const td =
+    document.createElement(
+      "td"
+    );
+
+  td.style.textAlign =
+    "center";
+
+  const texto =
+    textoTabela(tipo);
+
+  if (!texto) {
+    const vazio =
+      document.createElement(
+        "span"
+      );
+
+    vazio.textContent =
+      "-";
+
+    vazio.style.color =
+      "#94a3b8";
+
+    td.appendChild(vazio);
+
+    return td;
+  }
+
+  const badge =
+    document.createElement(
+      "span"
+    );
+
+  badge.textContent =
+    texto;
+
+  badge.style.padding =
+    "3px 10px";
+
+  badge.style.borderRadius =
+    "12px";
+
+  badge.style.fontSize =
+    "11px";
+
+  badge.style.fontWeight =
+    "700";
+
+  badge.style.display =
+    "inline-block";
+
+  const tipoLower =
+    texto.toLowerCase();
+
+  if (
+    tipoLower.includes(
+      "whatsapp"
+    )
+  ) {
+    badge.style.background =
+      "#dcfce7";
+
+    badge.style.color =
+      "#15803d";
+  } else if (
+    tipoLower.includes(
+      "ramal"
+    )
+  ) {
+    badge.style.background =
+      "#fef3c7";
+
+    badge.style.color =
+      "#b45309";
+  } else if (
+    tipoLower.includes(
+      "telefone"
+    ) ||
+    tipoLower.includes(
+      "fixo"
+    )
+  ) {
+    badge.style.background =
+      "#dbeafe";
+
+    badge.style.color =
+      "#1d4ed8";
+  } else {
+    badge.style.background =
+      "#f1f5f9";
+
+    badge.style.color =
+      "#475569";
+  }
+
+  td.appendChild(
+    badge
+  );
+
+  return td;
+}
+
+function criarCelulaWhatsapp(
+  whatsapp
+) {
+  const td =
+    document.createElement(
+      "td"
+    );
+
+  td.style.textAlign =
+    "center";
+
+  const texto =
+    textoTabela(whatsapp);
+
+  if (!texto) {
+    const vazio =
+      document.createElement(
+        "span"
+      );
+
+    vazio.textContent =
+      "-";
+
+    vazio.style.color =
+      "#94a3b8";
+
+    td.appendChild(vazio);
+
+    return td;
+  }
+
+  const somenteNumeros =
+    texto.replace(
+      /\D/g,
+      ""
+    );
+
+  if (!somenteNumeros) {
+    td.textContent =
+      texto;
+
+    return td;
+  }
+
+  const numeroWhatsapp =
+    somenteNumeros.startsWith(
+      "55"
+    )
+      ? somenteNumeros
+      : "55" + somenteNumeros;
+
+  const link =
+    document.createElement(
+      "a"
+    );
+
+  link.href =
+    "https://wa.me/" +
+    numeroWhatsapp;
+
+  link.target =
+    "_blank";
+
+  link.rel =
+    "noopener noreferrer";
+
+  link.title =
+    "Abrir conversa no WhatsApp";
+
+  link.textContent =
+    "💬 " + texto;
+
+  link.style.color =
+    "#16a34a";
+
+  link.style.fontWeight =
+    "600";
+
+  link.style.textDecoration =
+    "none";
+
+  td.appendChild(
+    link
+  );
+
+  return td;
+}
+
+function criarBotaoTabela(
+  texto,
+  classe,
+  callback
+) {
+  const botao =
+    document.createElement(
+      "button"
+    );
+
+  botao.type =
+    "button";
+
+  botao.className =
+    "btn " + classe;
+
+  botao.textContent =
+    texto;
+
+  botao.style.padding =
+    "5px 10px";
+
+  botao.style.fontSize =
+    "12px";
+
+  botao.addEventListener(
+    "click",
+    callback
+  );
+
+  return botao;
+}
+
+function renderizarTabela(
+  lista
+) {
+  const tbody =
+    document.getElementById(
+      "corpo-tabela-telefones"
+    );
+
+  if (!tbody) {
+    return;
+  }
+
+  tbody.textContent =
+    "";
+
+  const dados =
+    Array.isArray(lista)
+      ? lista
+      : [];
+
+  const perfil =
+    usuarioAtual &&
+    usuarioAtual.perfil
+      ? usuarioAtual.perfil
+      : "USUARIO_CONSULTA";
+
+  const logado =
+    Boolean(
+      usuarioAtual &&
+      usuarioAtual.logado === true
+    );
+
+  const mostrarAcoes =
+    logado &&
+    perfil !==
+      "USUARIO_CONSULTA";
+
+  const thAcoes =
+    document.getElementById(
+      "th-acoes"
+    );
+
+  if (thAcoes) {
+    thAcoes.style.display =
+      mostrarAcoes
+        ? ""
+        : "none";
+  }
+
+  if (
+    dados.length === 0
+  ) {
+    const tr =
+      document.createElement(
+        "tr"
+      );
+
+    const td =
+      document.createElement(
+        "td"
+      );
+
+    td.colSpan =
+      mostrarAcoes
+        ? 7
+        : 6;
+
+    td.textContent =
+      "Nenhum telefone encontrado.";
+
+    td.style.textAlign =
+      "center";
+
+    td.style.color =
+      "#64748b";
+
+    td.style.padding =
+      "20px";
+
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+
+    return;
+  }
+
+  dados.forEach(item => {
+    const id =
+      obterIdTelefone(item);
+
+    const comarca =
+      textoTabela(
+        valorCampoTelefone(
+          item,
+          "comarca",
+          "Comarca"
+        )
+      );
+
+    const setor =
+      textoTabela(
+        valorCampoTelefone(
+          item,
+          "setor",
+          "Setor"
+        )
+      );
+
+    const tipo =
+      textoTabela(
+        valorCampoTelefone(
+          item,
+          "tipo",
+          "Tipo"
+        )
+      );
+
+    const permitidoEditar =
+      podeEditarComarca(
+        comarca
+      );
+
+    const numero =
+      textoTabela(
+        valorCampoTelefone(
+          item,
+          "numero",
+          "Numero"
+        )
+      );
+
+    const ramal =
+      textoTabela(
+        valorCampoTelefone(
+          item,
+          "ramal",
+          "Ramal"
+        )
+      );
+
+    const whatsapp =
+      textoTabela(
+        valorCampoTelefone(
+          item,
+          "whatsapp",
+          "Whatsapp",
+          "WhatsApp"
+        )
+      );
+
+    const tr =
+      document.createElement(
+        "tr"
+      );
+
+    tr.appendChild(
+      criarCelulaTexto(
+        comarca,
+        "left"
+      )
+    );
+
+    const tdSetor =
+      criarCelulaTexto(
+        setor,
+        "left"
+      );
+
+    tdSetor.style.maxWidth =
+      "280px";
+
+    tdSetor.style.wordBreak =
+      "break-word";
+
+    tr.appendChild(
+      tdSetor
+    );
+
+    tr.appendChild(
+      criarCelulaTipo(
+        tipo
+      )
+    );
+
+    tr.appendChild(
+      criarCelulaTexto(
+        numero,
+        "center"
+      )
+    );
+
+    tr.appendChild(
+      criarCelulaTexto(
+        ramal,
+        "center"
+      )
+    );
+
+    tr.appendChild(
+      criarCelulaWhatsapp(
+        whatsapp
+      )
+    );
+
+    if (mostrarAcoes) {
+      const tdAcoes =
+        document.createElement(
+          "td"
+        );
+
+      tdAcoes.style.textAlign =
+        "center";
+
+      tdAcoes.style.whiteSpace =
+        "nowrap";
+
+      const grupo =
+        document.createElement(
+          "div"
+        );
+
+      grupo.style.display =
+        "flex";
+
+      grupo.style.gap =
+        "6px";
+
+      grupo.style.alignItems =
+        "center";
+
+      grupo.style.justifyContent =
+        "center";
+
+      grupo.style.flexWrap =
+        "wrap";
+
+      if (permitidoEditar) {
+        grupo.appendChild(
+          criarBotaoTabela(
+            "✏️ Editar",
+            "btn-primary",
+            function() {
+              abrirEditarTelefone(
+                id
+              );
+            }
+          )
+        );
+
+        grupo.appendChild(
+          criarBotaoTabela(
+            "🗑️ Excluir",
+            "btn-danger",
+            function() {
+              abrirExcluir(
+                id
+              );
+            }
+          )
+        );
+      } else {
+        const jaSolicitada =
+          comarcaSolicitadaHaPouco(
+            comarca
+          );
+
+        const botaoSolicitar =
+          criarBotaoTabela(
+            jaSolicitada
+              ? "✓ Solicitado"
+              : "🔓 Solicitar acesso",
+            "btn-secondary",
+            function() {
+              solicitarAcessoComarca(
+                comarca,
+                botaoSolicitar
+              );
+            }
+          );
+
+        botaoSolicitar.title =
+          "Você só pode editar telefones das suas comarcas. Solicite acesso a esta comarca.";
+
+        botaoSolicitar.disabled =
+          jaSolicitada;
+
+        botaoSolicitar.style.fontSize =
+          "11px";
+
+        grupo.appendChild(
+          botaoSolicitar
+        );
+      }
+
+      grupo.appendChild(
+        criarBotaoTabela(
+          "📜 Histórico",
+          "btn-secondary",
+          function() {
+            verHistorico(
+              id,
+              [
+                comarca,
+                setor
+              ]
+                .filter(Boolean)
+                .join(" - ")
+            );
+          }
+        )
+      );
+
+      tdAcoes.appendChild(
+        grupo
+      );
+
+      tr.appendChild(
+        tdAcoes
+      );
+    }
+
+    tbody.appendChild(
+      tr
+    );
+  });
+}
+
+function atualizarTabela() {
+  if (
+    typeof atualizarTabelaComFiltros ===
+    "function"
+  ) {
+    atualizarTabelaComFiltros();
+  } else {
+    renderizarTabela(
+      listaTelefones
+    );
+  }
+}
+
+function encontrarTelefone(id) {
+  const idBusca =
+    String(id || "")
+      .trim();
+
+  return (
+    listaTelefones.find(
+      item =>
+        obterIdTelefone(item) ===
+        idBusca
+    ) || null
+  );
+}
+
+function abrirEditarTelefonePorId(
+  idCodificado
+) {
+  abrirEditarTelefone(
+    decodificarParametro(
+      idCodificado
+    )
+  );
+}
+
+function abrirExcluir(id) {
+  const idBusca =
+    String(id || "")
+      .trim();
+
+  if (!idBusca) {
+    notificarTabela(
+      "ID inválido para exclusão.",
+      "error"
+    );
+
+    return;
+  }
+
+  idTelefoneParaExcluir =
+    idBusca;
+
+  const telefone =
+    encontrarTelefone(idBusca);
+
+  if (
+    telefone &&
+    !podeEditarComarca(
+      textoTabela(
+        telefone.comarca
+      )
+    )
+  ) {
+    idTelefoneParaExcluir =
+      null;
+
+    notificarTabela(
+      "Você só pode excluir telefones das suas comarcas.",
+      "error"
+    );
+
+    return;
+  }
+
+  const mensagem =
+    document.getElementById(
+      "msg-confirmar-exclusao"
+    );
+
+  if (mensagem) {
+    const identificacao =
+      telefone
+        ? [
+            textoTabela(
+              telefone.comarca
+            ),
+            textoTabela(
+              telefone.setor
+            )
+          ]
+            .filter(Boolean)
+            .join(" - ")
+        : "o registro selecionado";
+
+    mensagem.textContent =
+      "Tem certeza de que deseja excluir o telefone de " +
+      (
+        identificacao ||
+        "o registro selecionado"
+      ) +
+      "? Esta ação é irreversível.";
+  }
+
+  const botao =
+    document.getElementById(
+      "btn-confirmar-exclusao-submit"
+    );
+
+  if (botao) {
+    botao.disabled =
+      false;
+
+    botao.textContent =
+      "Sim, Excluir";
+
+    botao.onclick =
+      executarExclusaoTelefone;
+  }
+
+  const modal =
+    document.getElementById(
+      "modal-confirmar-exclusao"
+    );
+
+  if (!modal) {
+    idTelefoneParaExcluir =
+      null;
+
+    notificarTabela(
+      "Modal de exclusão não encontrado.",
+      "error"
+    );
+
+    return;
+  }
+
+  modal.style.display =
+    "flex";
+}
+
+function fecharModalExclusao() {
+  idTelefoneParaExcluir =
+    null;
+
+  const modal =
+    document.getElementById(
+      "modal-confirmar-exclusao"
+    );
+
+  if (modal) {
+    modal.style.display =
+      "none";
+  }
+
+  const botao =
+    document.getElementById(
+      "btn-confirmar-exclusao-submit"
+    );
+
+  if (botao) {
+    botao.disabled =
+      false;
+
+    botao.textContent =
+      "Sim, Excluir";
+  }
+}
+
+function executarExclusaoTelefone() {
+  if (
+    !idTelefoneParaExcluir
+  ) {
+    fecharModalExclusao();
+    return;
+  }
+
+  const idAlvo =
+    String(
+      idTelefoneParaExcluir
+    ).trim();
+
+  const botao =
+    document.getElementById(
+      "btn-confirmar-exclusao-submit"
+    );
+
+  if (botao) {
+    botao.disabled =
+      true;
+
+    botao.textContent =
+      "Excluindo...";
+  }
+
+  API.excluirTelefone(
+    idAlvo,
+    function(resposta) {
+      if (
+        !resposta ||
+        resposta.sucesso !== true
+      ) {
+        notificarTabela(
+          resposta &&
+          resposta.erro
+            ? resposta.erro
+            : "Erro ao excluir telefone.",
+          "error"
+        );
+
+        fecharModalExclusao();
+        return;
+      }
+
+      listaTelefones =
+        listaTelefones.filter(
+          item =>
+            obterIdTelefone(item) !==
+            idAlvo
+        );
+
+      if (
+        typeof todosTelefones !== "undefined" &&
+        Array.isArray(todosTelefones)
+      ) {
+        todosTelefones = todosTelefones.filter(item =>
+          String(item.ID || item.id || "").trim() !== idAlvo
+        );
+      }
+
+      fecharModalExclusao();
+
+      if (
+        typeof carregarFiltros ===
+        "function"
+      ) {
+        carregarFiltros();
+      }
+
+      if (
+        typeof atualizarTabelaComFiltros ===
+        "function"
+      ) {
+        atualizarTabelaComFiltros();
+      } else {
+        renderizarTabela(
+          listaTelefones
+        );
+      }
+
+      notificarTabela(
+        "Telefone excluído com sucesso!",
+        "success"
+      );
+    },
+    function(erro) {
+      fecharModalExclusao();
+
+      notificarTabela(
+        obterMensagemErro(
+          erro,
+          "Falha na comunicação ao excluir o telefone."
+        ),
+        "error"
+      );
+    }
+  );
+}
+
+function fecharModalExcluir() {
+  fecharModalExclusao();
+}
+
+function confirmarExclusao() {
+  executarExclusaoTelefone();
+}
+
+function verHistoricoPorId(
+  idCodificado,
+  identificacaoCodificada
+) {
+  verHistorico(
+    decodificarParametro(
+      idCodificado
+    ),
+    decodificarParametro(
+      identificacaoCodificada
+    )
+  );
+}
+
+function verHistorico(
+  id,
+  identificacaoTelefone
+) {
+  const idBusca =
+    String(id || "")
+      .trim();
+
+  if (!idBusca) {
+    notificarTabela(
+      "ID inválido para consultar o histórico.",
+      "error"
+    );
+
+    return;
+  }
+
+  mostrarView(
+    "historico-view"
+  );
+
+  historicoInfoTelefone =
+    identificacaoTelefone ||
+    "Telefone ID: " + idBusca;
+
+  const container =
+    document.getElementById(
+      "historico-container"
+    );
+
+  if (container) {
+    container.innerHTML =
+      `
+        <div class="panel" style="text-align:center;padding:40px;">
+          <p style="font-weight:600;color:#475569;">
+            ⏳ Carregando histórico...
+          </p>
+        </div>
+      `;
+  }
+
+  API.historico(
+    idBusca,
+    function(resposta) {
+      if (
+        !resposta ||
+        resposta.sucesso !== true
+      ) {
+        renderizarErroHistorico(
+          resposta &&
+          resposta.erro
+            ? resposta.erro
+            : "Não foi possível carregar o histórico."
+        );
+
+        return;
+      }
+
+      historicoDadosCache =
+        Array.isArray(
+          resposta.dados
+        )
+          ? resposta.dados
+          : [];
+
+      ordemHistoricoAtual =
+        "desc";
+
+      renderizarTabelaHistorico(
+        historicoDadosCache,
+        ordemHistoricoAtual
+      );
+    },
+    function(erro) {
+      renderizarErroHistorico(
+        obterMensagemErro(
+          erro,
+          "Erro na comunicação com o servidor."
+        )
+      );
+    }
+  );
+}
+
+function renderizarErroHistorico(
+  mensagem
+) {
+  const container =
+    document.getElementById(
+      "historico-container"
+    );
+
+  notificarTabela(
+    mensagem,
+    "error"
+  );
+
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML =
+    `
+      <div class="panel" style="text-align:center;padding:30px;">
+        <p style="color:#dc2626;font-weight:600;">
+          ⚠️ ${escaparHtml(mensagem)}
+        </p>
+
+        <button
+          type="button"
+          class="btn btn-primary"
+          onclick="mostrarView('telefones-view')"
+          style="margin-top:10px;"
+        >
+          ← Voltar para Telefones
+        </button>
+      </div>
+    `;
+}
+
+function formatarDataHistorico(
+  valor
+) {
+  if (
+    valor === null ||
+    valor === undefined ||
+    String(valor).trim() === ""
+  ) {
+    return "-";
+  }
+
+  const data =
+    valor instanceof Date
+      ? valor
+      : new Date(valor);
+
+  if (
+    isNaN(
+      data.getTime()
+    )
+  ) {
+    return escaparHtml(
+      valor
+    );
+  }
+
+  return escaparHtml(
+    data.toLocaleString(
+      "pt-BR"
+    )
+  );
+}
+
+function normalizarChaveHistorico(
+  campo
+) {
+  return normalizarChaveTabela(
+    campo
+  );
+}
+
+function rotuloCampoHistorico(
+  campo
+) {
+  const mapa = {
+    COMARCA: "Comarca",
+    MICROREGIAO: "Microrregião",
+    SETOR: "Setor",
+    TIPO: "Tipo",
+    TELEFONE: "Telefone",
+    NUMERO: "Telefone",
+    RAMAL: "Ramal",
+    WHATSAPP: "WhatsApp",
+    STATUS: "Status",
+    OBSERVACAO: "Observação"
+  };
+
+  return (
+    mapa[
+      normalizarChaveHistorico(
+        campo
+      )
+    ] || String(campo)
+  );
+}
+
+function ignorarCampoHistorico(
+  campo
+) {
+  return [
+    "DATAATUALIZACAO",
+    "ATUALIZADOEM",
+    "UPDATEDAT",
+    "DATACRIACAO",
+    "CRIADOEM",
+    "CREATEDAT",
+    "ID",
+    "TELEFONEID",
+    "USUARIO",
+    "ACAO"
+  ].includes(
+    normalizarChaveHistorico(
+      campo
+    )
+  );
+}
+
+function valorHistorico(
+  valor
+) {
+  if (
+    valor === null ||
+    valor === undefined
+  ) {
+    return "";
+  }
+
+  if (
+    valor instanceof Date
+  ) {
+    return valor.toLocaleString(
+      "pt-BR"
+    );
+  }
+
+  return String(
+    valor
+  ).trim();
+}
+
+function htmlAlteracaoHistorico(
+  campo,
+  valorAntigo,
+  valorNovo
+) {
+  const antigo =
+    valorHistorico(
+      valorAntigo
+    );
+
+  const novo =
+    valorHistorico(
+      valorNovo
+    );
+
+  if (
+    antigo === novo ||
+    (!antigo && !novo)
+  ) {
+    return "";
+  }
+
+  let mudancaHtml =
+    "";
+
+  if (
+    (!antigo || antigo === "-") &&
+    novo
+  ) {
+    mudancaHtml =
+      `
+        <span style="color:#16a34a;font-weight:700;">
+          ➔ ${escaparHtml(novo)}
+        </span>
+      `;
+  } else if (
+    antigo &&
+    (!novo || novo === "-")
+  ) {
+    mudancaHtml =
+      `
+        <span style="color:#dc2626;text-decoration:line-through;">
+          ${escaparHtml(antigo)}
+        </span>
+
+        <span style="color:#94a3b8;font-style:italic;font-size:11px;">
+          (removido)
+        </span>
+      `;
+  } else {
+    mudancaHtml =
+      `
+        <span style="color:#dc2626;text-decoration:line-through;">
+          ${escaparHtml(antigo)}
+        </span>
+
+        <span style="color:#16a34a;font-weight:700;">
+          ➔ ${escaparHtml(novo)}
+        </span>
+      `;
+  }
+
+  return `
+    <span
+      style="
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        background:#ffffff;
+        border:1px solid #cbd5e1;
+        padding:3px 8px;
+        border-radius:6px;
+        font-size:12px;
+        font-weight:500;
+      "
+    >
+      <strong style="color:#334155;">
+        ${escaparHtml(
+          rotuloCampoHistorico(
+            campo
+          )
+        )}:
+      </strong>
+
+      ${mudancaHtml}
+    </span>
+  `;
+}
+
+function objetoHistoricoSeguro(
+  valor
+) {
+  if (
+    valor &&
+    typeof valor ===
+      "object" &&
+    !Array.isArray(valor)
+  ) {
+    return valor;
+  }
+
+  if (
+    typeof valor ===
+      "string"
+  ) {
+    try {
+      const convertido =
+        JSON.parse(valor);
+
+      return convertido &&
+        typeof convertido ===
+          "object"
+        ? convertido
+        : {};
+    } catch (erro) {
+      return {};
+    }
+  }
+
+  return {};
+}
+
+function gerarDetalhesHistorico(
+  item
+) {
+  const antes =
+    objetoHistoricoSeguro(
+      item && item.antes
+    );
+
+  const depois =
+    objetoHistoricoSeguro(
+      item && item.depois
+    );
+
+  const campos =
+    new Set([
+      ...Object.keys(antes),
+      ...Object.keys(depois)
+    ]);
+
+  const alteracoes =
+    [];
+
+  campos.forEach(campo => {
+    if (
+      ignorarCampoHistorico(
+        campo
+      )
+    ) {
+      return;
+    }
+
+    const html =
+      htmlAlteracaoHistorico(
+        campo,
+        antes[campo],
+        depois[campo]
+      );
+
+    if (html) {
+      alteracoes.push(
+        html
+      );
+    }
+  });
+
+  if (
+    alteracoes.length === 0
+  ) {
+    const detalhes =
+      item &&
+      item.detalhes
+        ? String(
+            item.detalhes
+          )
+        : "";
+
+    return detalhes
+      ? escaparHtml(
+          detalhes
+        )
+      : `
+          <span style="color:#94a3b8;font-style:italic;">
+            Sem alterações visíveis de dados
+          </span>
+        `;
+  }
+
+  return `
+    <div
+      style="
+        display:flex;
+        flex-wrap:wrap;
+        gap:6px;
+        align-items:center;
+      "
+    >
+      ${alteracoes.join("")}
+    </div>
+  `;
+}
+
+function normalizarAcaoHistorico(
+  acao
+) {
+  const texto =
+    String(acao || "-")
+      .toUpperCase()
+      .trim();
+
+  if (
+    texto.includes("EDIC")
+  ) {
+    return {
+      rotulo: "EDIÇÃO",
+      fundo: "#fef08a",
+      texto: "#854d0e"
+    };
+  }
+
+  if (
+    texto.includes("CRIAC") ||
+    texto.includes("INCLUS")
+  ) {
+    return {
+      rotulo: "CRIAÇÃO",
+      fundo: "#bbf7d0",
+      texto: "#166534"
+    };
+  }
+
+  if (
+    texto.includes("EXCLUS")
+  ) {
+    return {
+      rotulo: "EXCLUSÃO",
+      fundo: "#fecaca",
+      texto: "#991b1b"
+    };
+  }
+
+  return {
+    rotulo: texto,
+    fundo: "#e2e8f0",
+    texto: "#475569"
+  };
+}
+
+function timestampHistorico(
+  item
+) {
+  const valor =
+    item &&
+    (
+      item.data ||
+      item.dataHora ||
+      item.created_at
+    );
+
+  const tempo =
+    valor
+      ? new Date(valor)
+          .getTime()
+      : 0;
+
+  return isNaN(tempo)
+    ? 0
+    : tempo;
+}
+
+function renderizarTabelaHistorico(
+  dados,
+  ordem
+) {
+  const container =
+    document.getElementById(
+      "historico-container"
+    );
+
+  if (!container) {
+    return;
+  }
+
+  if (
+    Array.isArray(dados)
+  ) {
+    historicoDadosCache =
+      dados;
+  }
+
+  const ordemAtual =
+    ordem === "asc"
+      ? "asc"
+      : "desc";
+
+  ordemHistoricoAtual =
+    ordemAtual;
+
+  const dadosParaExibir =
+    historicoDadosCache
+      .map(
+        (item, indice) => ({
+          item,
+          indice
+        })
+      )
+      .sort(
+        (a, b) => {
+          const tempoA =
+            timestampHistorico(
+              a.item
+            );
+
+          const tempoB =
+            timestampHistorico(
+              b.item
+            );
+
+          if (
+            tempoA === tempoB
+          ) {
+            return (
+              a.indice -
+              b.indice
+            );
+          }
+
+          return ordemAtual ===
+            "desc"
+            ? tempoB - tempoA
+            : tempoA - tempoB;
+        }
+      )
+      .map(
+        registro =>
+          registro.item
+      );
+
+  const campoBuscaAnterior =
+    document.getElementById(
+      "busca-historico"
+    );
+
+  const termoBusca =
+    campoBuscaAnterior
+      ? campoBuscaAnterior.value
+      : "";
+
+  let html =
+    `
+      <div class="panel">
+        <div
+          class="page-header"
+          style="
+            flex-wrap:wrap;
+            gap:10px;
+          "
+        >
+          <div>
+            <h2
+              style="
+                margin:0;
+                font-size:20px;
+                color:#1e293b;
+              "
+            >
+              Histórico de Alterações
+            </h2>
+
+            <div
+              style="
+                margin-top:6px;
+                font-size:14px;
+                color:#2563eb;
+                font-weight:600;
+              "
+            >
+              📍 ${escaparHtml(
+                historicoInfoTelefone
+              )}
+            </div>
+          </div>
+
+          <div
+            style="
+              display:flex;
+              align-items:center;
+              gap:10px;
+              flex-wrap:wrap;
+            "
+          >
+            <button
+              type="button"
+              class="btn btn-secondary"
+              onclick="imprimirHistorico()"
+            >
+              🖨️ Imprimir / PDF
+            </button>
+
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick="mostrarView('telefones-view')"
+            >
+              ← Voltar para Telefones
+            </button>
+          </div>
+        </div>
+
+        <div
+          style="
+            display:flex;
+            justify-content:space-between;
+            gap:15px;
+            margin-bottom:20px;
+            flex-wrap:wrap;
+            background:#f8fafc;
+            padding:12px;
+            border-radius:8px;
+          "
+        >
+          <div style="flex:1;min-width:200px;">
+            <input
+              type="text"
+              id="busca-historico"
+              placeholder="🔍 Filtrar por usuário, ação ou detalhe..."
+              value="${escaparHtml(
+                termoBusca
+              )}"
+              style="
+                width:100%;
+                padding:8px 12px;
+                border:1px solid #d1d5db;
+                border-radius:6px;
+              "
+              oninput="filtrarHistoricoNaTela()"
+            >
+          </div>
+
+          <div
+            style="
+              display:flex;
+              align-items:center;
+              gap:10px;
+            "
+          >
+            <label
+              for="select-ordem-historico"
+              style="
+                font-size:14px;
+                font-weight:500;
+                color:#475569;
+              "
+            >
+              Ordenar:
+            </label>
+
+            <select
+              id="select-ordem-historico"
+              style="
+                border:1px solid #d1d5db;
+                background:white;
+                padding:8px 12px;
+                border-radius:8px;
+              "
+              onchange="alternarOrdemHistorico(this.value)"
+            >
+              <option
+                value="desc"
+                ${
+                  ordemAtual ===
+                  "desc"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Mais recentes primeiro
+              </option>
+
+              <option
+                value="asc"
+                ${
+                  ordemAtual ===
+                  "asc"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Mais antigos primeiro
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-panel">
+          <table
+            class="data-table"
+            id="tabela-historico-print"
+          >
+            <thead>
+              <tr>
+                <th>Data/Hora</th>
+                <th>Usuário</th>
+                <th style="text-align:center;">
+                  Ação
+                </th>
+                <th>Detalhes</th>
+              </tr>
+            </thead>
+
+            <tbody>
+    `;
+
+  if (
+    dadosParaExibir.length ===
+    0
+  ) {
+    html +=
+      `
+        <tr>
+          <td
+            colspan="4"
+            style="
+              text-align:center;
+              color:#64748b;
+              padding:20px;
+            "
+          >
+            Nenhum registro de histórico encontrado.
+          </td>
+        </tr>
+      `;
+  } else {
+    dadosParaExibir.forEach(item => {
+      const data =
+        item &&
+        (
+          item.data ||
+          item.dataHora ||
+          item.created_at ||
+          "-"
+        );
+
+      const usuario =
+        item &&
+        (
+          item.usuario ||
+          item.email ||
+          "-"
+        );
+
+      const acao =
+        item &&
+        (
+          item.acao ||
+          item.tipo ||
+          "-"
+        );
+
+      const acaoInfo =
+        normalizarAcaoHistorico(
+          acao
+        );
+
+      html +=
+        `
+          <tr>
+            <td style="white-space:nowrap;">
+              ${formatarDataHistorico(
+                data
+              )}
+            </td>
+
+            <td style="word-break:break-word;">
+              ${escaparHtml(
+                usuario
+              )}
+            </td>
+
+            <td style="text-align:center;">
+              <span
+                style="
+                  background-color:${acaoInfo.fundo};
+                  color:${acaoInfo.texto};
+                  padding:4px 8px;
+                  border-radius:6px;
+                  font-size:11px;
+                  font-weight:bold;
+                  display:inline-block;
+                  min-width:75px;
+                "
+              >
+                ${escaparHtml(
+                  acaoInfo.rotulo
+                )}
+              </span>
+            </td>
+
+            <td style="word-break:break-word;">
+              ${gerarDetalhesHistorico(
+                item
+              )}
+            </td>
+          </tr>
+        `;
+    });
+  }
+
+  html +=
+    `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+  container.innerHTML =
+    html;
+
+  if (
+    termoBusca
+  ) {
+    filtrarHistoricoNaTela();
+  }
+}
+
+/**
+ * Handlers do histórico (referenciados no HTML gerado acima).
+ * Delegam para a lógica existente onde possível.
+ */
+function imprimirHistorico() {
+  if (typeof imprimirRegistroAlteracoes === "function") {
+    imprimirRegistroAlteracoes();
+    return;
+  }
+
+  window.print();
+}
+
+function filtrarHistoricoNaTela() {
+  const termo = String(
+    document.getElementById("busca-historico")?.value || ""
+  ).trim().toLowerCase();
+
+  const tbody = document.querySelector("#tabela-historico-print tbody");
+  if (!tbody) return;
+
+  Array.from(tbody.rows).forEach(tr => {
+    const texto = tr.textContent.toLowerCase();
+    tr.style.display = !termo || texto.includes(termo) ? "" : "none";
+  });
+}
+
+function alternarOrdemHistorico(ordem) {
+  ordemHistoricoAtual = ordem === "asc" ? "asc" : "desc";
+  renderizarTabelaHistorico(historicoDadosCache, ordemHistoricoAtual);
+}
+
+</script>

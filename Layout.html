@@ -1,0 +1,304 @@
+<!--
+==========================================================
+SISTEMA DE TELEFONES TJES
+Arquivo: Layout.html
+==========================================================
+-->
+
+<div class="app-container">
+  <aside id="sidebar-container">
+    <?!= include("Sidebar"); ?>
+  </aside>
+
+  <main class="main-container">
+    <header class="topbar">
+      <div class="system-title">
+        <h1>SISTEMA INTELIGENTE DE GESTÃO DE TELEFONES DO PJES</h1>
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+        <button type="button" id="btn-imprimir-todas-comarcas" class="btn btn-secondary" style="display:none;padding:6px 10px;font-size:12px;" onclick="imprimirTodasComarcas()" title="Imprimir todas as comarcas com seus setores">
+          🖨️ Imprimir todas as comarcas
+        </button>
+        <div id="user-info" class="user-info"></div>
+      </div>
+    </header>
+
+    <section id="dashboard-view" class="view">
+      <?!= include("Dashboard"); ?>
+    </section>
+
+    <section id="telefones-view" class="view hidden">
+      <?!= include("Telefones"); ?>
+    </section>
+
+    <section id="consulta-telefones-view" class="view hidden">
+      <?!= include("ConsultarTelefones"); ?>
+    </section>
+
+    <section id="formulario-acesso-view" class="view hidden">
+      <?!= include("FormularioAcesso"); ?>
+    </section>
+
+    <section id="registro-alteracoes-view" class="view hidden">
+      <div id="registro-alteracoes-container"></div>
+    </section>
+
+    <section id="solicitacoes-view" class="view hidden">
+      <?!= include("Solicitacoes"); ?>
+    </section>
+
+    <section id="usuarios-view" class="view hidden">
+      <?!= include("Usuarios"); ?>
+    </section>
+
+    <section id="configuracoes-view" class="view hidden">
+      <div class="config-hero">
+        <div class="config-hero-icon">⚙</div>
+        <div class="config-hero-text">
+          <h2>Configurações</h2>
+          <p>Parâmetros, integrações e preferências do sistema</p>
+        </div>
+        <div class="config-hero-badge">
+          <span class="config-hero-version">v<?= sistemaVersao ?></span>
+          <span class="config-hero-dot"></span>
+          <span>sistema operacional</span>
+        </div>
+      </div>
+
+      <div class="config-grid">
+
+        <!-- Aparência -->
+        <div class="config-card config-card-aparencia">
+          <div class="config-card-header">
+            <div class="config-card-icon config-card-icon--violet">🎨</div>
+            <div>
+              <h3>Aparência</h3>
+              <span class="config-card-subtitle">Personalize a exibição</span>
+            </div>
+          </div>
+          <div class="config-card-body">
+            <div class="config-aparencia-row">
+              <div class="config-aparencia-text">
+                <strong>Modo escuro</strong>
+                <p>Alterne entre tema claro e escuro. A preferência fica salva neste navegador.</p>
+              </div>
+              <label class="switch">
+                <input id="toggle-dark-mode" type="checkbox" onchange="alternarModoEscuro(this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="config-preview">
+              <div class="config-preview-box config-preview-light">
+                <span class="config-preview-dot" style="background:#fff;border:1px solid #e2e8f0;"></span>
+                <span>Claro</span>
+              </div>
+              <div class="config-preview-box config-preview-dark">
+                <span class="config-preview-dot" style="background:#0f172a;"></span>
+                <span>Escuro</span>
+              </div>
+            </div>
+            <div class="config-hint">Dica: o modo escuro reduz o cansaço visual em ambientes com pouca luz.</div>
+          </div>
+        </div>
+
+        <!-- Sistema -->
+        <div class="config-card">
+          <div class="config-card-header">
+            <div class="config-card-icon config-card-icon--blue">🖥</div>
+            <div>
+              <h3>Sistema</h3>
+              <span class="config-card-subtitle">Identidade e ambiente</span>
+            </div>
+          </div>
+          <div class="config-card-body">
+            <div class="config-kv">
+              <div class="config-row">
+                <span class="config-label">Nome</span>
+                <span class="config-value config-value-nome">Sistema Inteligente de Gestão de Telefones do PJES</span>
+              </div>
+              <div class="config-row">
+                <span class="config-label">Versão</span>
+                <span class="config-value"><span class="config-badge-versao">v<?= sistemaVersao ?></span></span>
+              </div>
+              <div class="config-row">
+                <span class="config-label">Ambiente</span>
+                <span class="config-value"><span class="config-env-dot"></span> Google Apps Script Web App</span>
+              </div>
+              <div class="config-row">
+                <span class="config-label">Implantação</span>
+                <span class="config-value config-value-muted">Web App · Google Workspace</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Conexão -->
+        <div class="config-card config-card-wide">
+          <div class="config-card-header">
+            <div class="config-card-icon config-card-icon--emerald">🔗</div>
+            <div>
+              <h3>Conexão</h3>
+              <span class="config-card-subtitle">URLs de acesso ao sistema</span>
+            </div>
+          </div>
+          <div class="config-card-body">
+            <div class="config-url-group">
+              <label><span class="config-url-label-icon">🌐</span> URL pública <em>consulta anônima</em></label>
+              <div class="config-url-row">
+                <span id="config-url-publica" class="config-url-text"><?= urlSistema ?></span>
+                <button type="button" class="btn btn-secondary btn-copy" onclick="copiarConfigUrl('config-url-publica', this)" title="Copiar URL pública">⎘ Copiar</button>
+              </div>
+              <span class="config-url-hint">Acesso sem login — qualquer pessoa pode consultar os telefones.</span>
+            </div>
+            <div class="config-url-group">
+              <label><span class="config-url-label-icon">🔒</span> URL administrativa <em>login Google</em></label>
+              <div class="config-url-row">
+                <span id="config-url-admin" class="config-url-text"><?= urlAdmin ?></span>
+                <button type="button" class="btn btn-secondary btn-copy" onclick="copiarConfigUrl('config-url-admin', this)" title="Copiar URL administrativa">⎘ Copiar</button>
+              </div>
+              <span class="config-url-hint">Acesso com conta Google autorizada — gestão e edição.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Conta -->
+        <div class="config-card">
+          <div class="config-card-header">
+            <div class="config-card-icon config-card-icon--amber">👤</div>
+            <div>
+              <h3>Conta</h3>
+              <span class="config-card-subtitle">Sessão atual</span>
+            </div>
+            <span id="config-conta-badge" class="config-conta-badge">visitante</span>
+          </div>
+          <div class="config-card-body">
+            <div class="config-conta-main">
+              <div class="config-avatar">👤</div>
+              <div class="config-conta-info">
+                <div id="config-conta-conectada" class="config-conta-email">—</div>
+                <div id="config-conta-perfil" class="config-conta-perfil">Carregando perfil...</div>
+              </div>
+            </div>
+            <div id="config-conta-comarcas-wrap" class="config-comarcas-wrap hidden">
+              <label>Comarcas permitidas</label>
+              <div id="config-conta-comarcas" class="config-comarcas-list"></div>
+              <span class="config-comarcas-hint">Gestor de Conteúdo — acesso limitado às comarcas acima.</span>
+            </div>
+            <div class="config-meta-row">
+              <span class="config-meta-label">Domínio institucional</span>
+              <span class="config-meta-value"><?= dominioInstitucional ?></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banco -->
+        <div class="config-card">
+          <div class="config-card-header">
+            <div class="config-card-icon config-card-icon--slate">🗄</div>
+            <div>
+              <h3>Banco de Dados</h3>
+              <span class="config-card-subtitle">Armazenamento e sincronização</span>
+            </div>
+          </div>
+          <div class="config-card-body">
+            <div class="config-status-row">
+              <span class="config-status-dot"></span>
+              <div>
+                <div class="config-status-text">Conectado</div>
+                <div class="config-status-sub">Google Sheets operacional</div>
+              </div>
+              <span class="config-status-badge">online</span>
+            </div>
+            <div class="config-db-grid">
+              <div class="config-db-item">
+                <span class="config-db-label">Fonte</span>
+                <span class="config-db-value">Google Sheets</span>
+              </div>
+              <div class="config-db-item">
+                <span class="config-db-label">Sincronização</span>
+                <span class="config-db-value">automática</span>
+              </div>
+              <div class="config-db-item">
+                <span class="config-db-label">Última verificação</span>
+                <span id="config-last-sync" class="config-db-value">agora</span>
+              </div>
+              <div class="config-db-item">
+                <span class="config-db-label">Latência</span>
+                <span class="config-db-value">&lt; 1s</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="config-footer">
+        <span>Sistema Inteligente de Gestão de Telefones do Poder Judiciário do Estado do Espírito Santo · TJES</span>
+        <span class="config-footer-sep">·</span>
+        <span>Suporte: STI · v<?= sistemaVersao ?></span>
+      </div>
+
+      <script>
+        function copiarConfigUrl(id, btn) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          var texto = (el.textContent || el.innerText || "").trim();
+          if (!texto || texto === "—") {
+            if (typeof mostrarToast === "function") mostrarToast("Nada para copiar.", "warning");
+            return;
+          }
+          function sucesso() {
+            if (typeof mostrarToast === "function") mostrarToast("Copiado para a área de transferência!", "success");
+            if (btn) {
+              var original = btn.textContent;
+              btn.textContent = "✓ Copiado!";
+              btn.disabled = true;
+              setTimeout(function(){ btn.textContent = original; btn.disabled = false; }, 1600);
+            }
+          }
+          function falha() {
+            try {
+              var range = document.createRange();
+              range.selectNodeContents(el);
+              var sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(range);
+              document.execCommand("copy");
+              sel.removeAllRanges();
+              sucesso();
+            } catch(e) {
+              if (typeof mostrarToast === "function") mostrarToast("Copie manualmente: " + texto, "info");
+            }
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(sucesso).catch(falha);
+          } else {
+            falha();
+          }
+        }
+        (function(){
+          var el = document.getElementById("config-last-sync");
+          if (!el) return;
+          try {
+            var agora = new Date();
+            var fmt = agora.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+            el.textContent = fmt;
+            el.title = agora.toISOString();
+          } catch(e) {}
+        })();
+      </script>
+    </section>
+
+    <section id="manual-view" class="view hidden">
+      <?!= include("Manual"); ?>
+    </section>
+
+    <section id="historico-view" class="view hidden">
+      <div id="historico-container"></div>
+    </section>
+  </main>
+</div>
+
+<?!= include("ModalTelefone"); ?>
+<?!= include("ModalAcesso"); ?>

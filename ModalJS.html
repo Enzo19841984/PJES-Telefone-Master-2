@@ -1,0 +1,714 @@
+<script>
+/**
+ * ==========================================================
+ * SISTEMA DE TELEFONES TJES
+ * Arquivo: ModalJS.html
+ * ==========================================================
+ */
+
+let telefoneEditando = null;
+
+function abrirModalNovoTelefone() {
+  telefoneEditando = null;
+
+  limparFormularioTelefone();
+  limparMensagemModal();
+
+  const titulo =
+    document.getElementById(
+      "modal-titulo"
+    );
+
+  if (titulo) {
+    titulo.textContent =
+      "Adicionar novo telefone";
+  }
+
+  const modal =
+    document.getElementById(
+      "modal-telefone"
+    );
+
+  if (modal) {
+    modal.classList.remove(
+      "hidden"
+    );
+
+    modal.style.display =
+      "flex";
+  }
+}
+
+function editarTelefone(id) {
+  abrirEditarTelefone(id);
+}
+
+function preencherFormularioTelefone(telefone) {
+  if (!telefone) {
+    return;
+  }
+
+  const valor = (
+    campo,
+    ...alternativos
+  ) => {
+    const nomes = [
+      campo,
+      ...alternativos
+    ];
+
+    for (const nome of nomes) {
+      if (
+        telefone[nome] !==
+          undefined &&
+        telefone[nome] !==
+          null
+      ) {
+        return telefone[nome];
+      }
+    }
+
+    return "";
+  };
+
+  setValorCampo(
+    "telefone-id",
+    valor("ID", "id")
+  );
+
+  setValorCampo(
+    "telefone-microrregiao",
+    valor(
+      "microrregiao",
+      "Microrregiao"
+    )
+  );
+
+  setValorCampo(
+    "telefone-comarca",
+    valor(
+      "comarca",
+      "Comarca"
+    )
+  );
+
+  setValorCampo(
+    "telefone-setor",
+    valor(
+      "setor",
+      "Setor"
+    )
+  );
+
+  setValorCampo(
+    "telefone-tipo",
+    valor(
+      "tipo",
+      "Tipo"
+    )
+  );
+
+  setValorCampo(
+    "telefone-numero",
+    valor(
+      "numero",
+      "Numero"
+    )
+  );
+
+  setValorCampo(
+    "telefone-ramal",
+    valor(
+      "ramal",
+      "Ramal"
+    )
+  );
+
+  setValorCampo(
+    "telefone-whatsapp",
+    valor(
+      "whatsapp",
+      "Whatsapp",
+      "WhatsApp"
+    )
+  );
+
+  setValorCampo(
+    "telefone-email",
+    valor(
+      "email",
+      "EMAIL",
+      "E_MAIL",
+      "E-mail"
+    )
+  );
+
+  setValorCampo(
+    "telefone-endereco",
+    valor(
+      "endereco",
+      "ENDERECO",
+      "Endereco",
+      "Endereço"
+    )
+  );
+
+  setValorCampo(
+    "telefone-status",
+    valor(
+      "status",
+      "Status"
+    ) || "ATIVO"
+  );
+
+  setValorCampo(
+    "telefone-observacao",
+    valor(
+      "observacao",
+      "Observacao"
+    )
+  );
+}
+
+function limparFormularioTelefone() {
+  const campos = [
+    "telefone-id",
+    "telefone-microrregiao",
+    "telefone-comarca",
+    "telefone-setor",
+    "telefone-tipo",
+    "telefone-numero",
+    "telefone-ramal",
+    "telefone-whatsapp",
+    "telefone-email",
+    "telefone-endereco",
+    "telefone-observacao"
+  ];
+
+  campos.forEach(id => {
+    setValorCampo(id, "");
+  });
+
+  setValorCampo(
+    "telefone-status",
+    "ATIVO"
+  );
+}
+
+function fecharModalTelefone() {
+  limparMensagemModal();
+
+  const modal =
+    document.getElementById(
+      "modal-telefone"
+    );
+
+  if (modal) {
+    modal.classList.add(
+      "hidden"
+    );
+
+    modal.style.display =
+      "none";
+  }
+
+  telefoneEditando = null;
+}
+
+function obterDadosFormularioTelefone() {
+  const idCampo =
+    getValorCampo(
+      "telefone-id"
+    );
+
+  const idAtual =
+    idCampo ||
+    telefoneEditando ||
+    "";
+
+  const limparCampo = id => {
+    const valor =
+      getValorCampo(id)
+        .trim();
+
+    return valor === "-"
+      ? ""
+      : valor;
+  };
+
+  return {
+    ID: idAtual,
+    id: idAtual,
+
+    microrregiao:
+      limparCampo("telefone-microrregiao"),
+
+    comarca:
+      limparCampo("telefone-comarca"),
+
+    setor:
+      limparCampo("telefone-setor"),
+
+    tipo:
+      limparCampo("telefone-tipo"),
+
+    numero:
+      limparCampo("telefone-numero"),
+
+    ramal:
+      limparCampo("telefone-ramal"),
+
+    whatsapp:
+      limparCampo("telefone-whatsapp"),
+
+    email:
+      limparCampo("telefone-email"),
+
+    endereco:
+      limparCampo("telefone-endereco"),
+
+    status:
+      limparCampo("telefone-status"),
+
+    observacao:
+      limparCampo("telefone-observacao")
+  };
+}
+
+function exibirNotificacao(
+  mensagem,
+  tipo
+) {
+  const elemento =
+    document.getElementById(
+      "modal-mensagem-erro"
+    );
+
+  if (!elemento) {
+    return;
+  }
+
+  const sucesso =
+    tipo === "success";
+
+  elemento.textContent =
+    (
+      sucesso
+        ? "✅ "
+        : "⚠️ "
+    ) +
+    String(
+      mensagem || ""
+    );
+
+  elemento.style.backgroundColor =
+    sucesso
+      ? "#d1e7dd"
+      : "#f8d7da";
+
+  elemento.style.color =
+    sucesso
+      ? "#0f5132"
+      : "#842029";
+
+  elemento.style.borderColor =
+    sucesso
+      ? "#badbcc"
+      : "#f5c2c7";
+
+  elemento.classList.remove(
+    "hidden"
+  );
+}
+
+function limparMensagemModal() {
+  const elemento =
+    document.getElementById(
+      "modal-mensagem-erro"
+    );
+
+  if (!elemento) {
+    return;
+  }
+
+  elemento.textContent =
+    "";
+
+  elemento.classList.add(
+    "hidden"
+  );
+}
+
+function validarFormularioTelefone(
+  dados
+) {
+  const faltantes = [];
+
+  if (!dados.microrregiao) {
+    faltantes.push(
+      "Microrregião"
+    );
+  }
+
+  if (!dados.comarca) {
+    faltantes.push(
+      "Comarca"
+    );
+  }
+
+  if (!dados.setor) {
+    faltantes.push(
+      "Setor"
+    );
+  }
+
+  if (!dados.status) {
+    faltantes.push(
+      "Status"
+    );
+  }
+
+  if (faltantes.length > 0) {
+    exibirNotificacao(
+      "Por favor, preencha os campos obrigatórios: " +
+        faltantes.join(", ") +
+        ".",
+      "error"
+    );
+
+    return false;
+  }
+
+  if (
+    !dados.numero &&
+    !dados.ramal &&
+    !dados.whatsapp
+  ) {
+    exibirNotificacao(
+      "Preencha ao menos um meio de contato: Telefone, Ramal ou WhatsApp.",
+      "error"
+    );
+
+    return false;
+  }
+
+  return true;
+}
+
+function atualizarListaLocalTelefone(
+  registro,
+  modoEdicao,
+  idEdicao
+) {
+  if (
+    typeof listaTelefones ===
+      "undefined" ||
+    !Array.isArray(
+      listaTelefones
+    )
+  ) {
+    return;
+  }
+
+  const idRegistro =
+    String(
+      registro.ID ||
+      registro.id ||
+      idEdicao ||
+      ""
+    ).trim();
+
+  if (modoEdicao) {
+    const indice =
+      listaTelefones.findIndex(
+        item => {
+          return (
+            obterIdTelefone(item) ===
+            String(idEdicao)
+              .trim()
+          );
+        }
+      );
+
+    if (indice >= 0) {
+      listaTelefones[indice] =
+        Object.assign(
+          {},
+          listaTelefones[indice],
+          registro
+        );
+    }
+
+    if (
+      typeof todosTelefones !== "undefined" &&
+      Array.isArray(todosTelefones)
+    ) {
+      const idx2 =
+        todosTelefones.findIndex(item =>
+          String(item.ID || item.id || "").trim() === String(idEdicao).trim()
+        );
+
+      if (idx2 >= 0) {
+        todosTelefones[idx2] = Object.assign({}, todosTelefones[idx2], registro);
+      }
+    }
+  } else if (idRegistro) {
+    listaTelefones.push(registro);
+
+    if (
+      typeof todosTelefones !== "undefined" &&
+      Array.isArray(todosTelefones)
+    ) {
+      todosTelefones.push(Object.assign({}, registro));
+    }
+  }
+
+  if (
+    typeof carregarFiltros ===
+    "function"
+  ) {
+    carregarFiltros();
+  }
+
+  if (
+    typeof atualizarTabelaComFiltros ===
+    "function"
+  ) {
+    atualizarTabelaComFiltros();
+  } else if (
+    typeof renderizarTabela ===
+    "function"
+  ) {
+    renderizarTabela(
+      listaTelefones
+    );
+  }
+}
+
+function salvarTelefone() {
+  limparMensagemModal();
+
+  const dados =
+    obterDadosFormularioTelefone();
+
+  if (
+    !validarFormularioTelefone(
+      dados
+    )
+  ) {
+    return;
+  }
+
+  const comarcaFormulario =
+    String(
+      dados.comarca || ""
+    ).trim();
+
+  if (
+    typeof podeEditarComarca ===
+      "function" &&
+    !podeEditarComarca(
+      comarcaFormulario
+    )
+  ) {
+    exibirNotificacao(
+      "Você só pode salvar telefones nas suas comarcas.",
+      "error"
+    );
+
+    return;
+  }
+
+  const modoEdicao =
+    Boolean(
+      telefoneEditando
+    );
+
+  const idEdicao =
+    String(
+      telefoneEditando || ""
+    ).trim();
+
+  const botao =
+    document.getElementById(
+      "btn-salvar-telefone"
+    );
+
+  const textoOriginal =
+    botao
+      ? botao.textContent
+      : "Salvar";
+
+  if (botao) {
+    botao.disabled = true;
+    botao.textContent =
+      "Salvando...";
+  }
+
+  const restaurarBotao = () => {
+    if (botao) {
+      botao.disabled = false;
+      botao.textContent =
+        textoOriginal ||
+        "Salvar";
+    }
+  };
+
+  const sucesso = resposta => {
+    if (
+      !resposta ||
+      resposta.sucesso !== true ||
+      !resposta.dados
+    ) {
+      restaurarBotao();
+
+      exibirNotificacao(
+        resposta &&
+        resposta.erro
+          ? resposta.erro
+          : "Erro ao salvar registro.",
+        "error"
+      );
+
+      return;
+    }
+
+    const registro =
+      resposta.dados;
+
+    atualizarListaLocalTelefone(
+      registro,
+      modoEdicao,
+      idEdicao
+    );
+
+    exibirNotificacao(
+      "Telefone salvo com sucesso!",
+      "success"
+    );
+
+    setTimeout(() => {
+      fecharModalTelefone();
+      restaurarBotao();
+    }, 800);
+  };
+
+  const erro = erroServidor => {
+    restaurarBotao();
+
+    exibirNotificacao(
+      erroServidor &&
+      erroServidor.message
+        ? erroServidor.message
+        : "Erro interno ao salvar telefone.",
+      "error"
+    );
+  };
+
+  if (modoEdicao) {
+    API.atualizarTelefone(
+      idEdicao,
+      dados,
+      sucesso,
+      erro
+    );
+  } else {
+    API.criarTelefone(
+      dados,
+      sucesso,
+      erro
+    );
+  }
+}
+
+function abrirEditarTelefone(id) {
+  const telefone =
+    encontrarTelefone(id);
+
+  if (!telefone) {
+    mostrarToast(
+      "Telefone não encontrado.",
+      "error"
+    );
+
+    return;
+  }
+
+  if (
+    typeof podeEditarComarca ===
+      "function" &&
+    !podeEditarComarca(
+      String(
+        telefone.comarca || ""
+      ).trim()
+    )
+  ) {
+    mostrarToast(
+      "Você só pode editar telefones das suas comarcas.",
+      "error"
+    );
+
+    return;
+  }
+
+  telefoneEditando =
+    String(id).trim();
+
+  limparMensagemModal();
+
+  preencherFormularioTelefone(
+    telefone
+  );
+
+  const titulo =
+    document.getElementById(
+      "modal-titulo"
+    );
+
+  if (titulo) {
+    titulo.textContent =
+      "Editar telefone";
+  }
+
+  const modal =
+    document.getElementById(
+      "modal-telefone"
+    );
+
+  if (modal) {
+    modal.classList.remove(
+      "hidden"
+    );
+
+    modal.style.display =
+      "flex";
+  }
+}
+
+function getValorCampo(id) {
+  const elemento =
+    document.getElementById(id);
+
+  return elemento
+    ? String(
+        elemento.value || ""
+      )
+    : "";
+}
+
+function setValorCampo(
+  id,
+  valor
+) {
+  const elemento =
+    document.getElementById(id);
+
+  if (elemento) {
+    elemento.value =
+      valor === null ||
+      valor === undefined
+        ? ""
+        : valor;
+  }
+}
+</script>

@@ -1,0 +1,105 @@
+<!--
+==========================================================
+SISTEMA DE TELEFONES TJES
+Arquivo: Sidebar.html
+==========================================================
+-->
+
+<div class="sidebar">
+  <div>
+    <div class="sidebar-header">
+      <h2>PJES</h2>
+      <span>Poder Judiciário do ES</span>
+    </div>
+
+    <nav class="sidebar-menu">
+      <button type="button" id="menu-dashboard" class="menu-item active" onclick="mostrarView('dashboard-view')">
+        <span class="icon">🏠</span>
+        <span>Dashboard</span>
+      </button>
+
+      <button type="button" id="menu-telefones" class="menu-item" onclick="navegarParaTelefones()">
+        <span class="icon">☎</span>
+        <span>Telefones</span>
+      </button>
+
+      <button type="button" id="menu-formulario" class="menu-item" onclick="mostrarView('formulario-acesso-view')">
+        <span class="icon">📝</span>
+        <span>Formulário de Acesso</span>
+      </button>
+
+      <button type="button" id="menu-solicitacoes" class="menu-item hidden" onclick="mostrarView('solicitacoes-view')">
+        <span class="icon">👥</span>
+        <span>Solicitações de Acesso</span>
+      </button>
+
+      <button type="button" id="menu-usuarios" class="menu-item hidden" onclick="mostrarView('usuarios-view')">
+        <span class="icon">🧑‍💼</span>
+        <span>Usuários</span>
+      </button>
+
+      <button type="button" id="menu-alteracoes" class="menu-item" onclick="mostrarView('registro-alteracoes-view')">
+        <span class="icon">📋</span>
+        <span>Registro de Alterações</span>
+      </button>
+
+      <button type="button" id="menu-configuracoes" class="menu-item" onclick="mostrarView('configuracoes-view')">
+        <span class="icon">⚙</span>
+        <span>Configurações</span>
+      </button>
+
+      <button type="button" id="menu-manual" class="menu-item" onclick="mostrarView('manual-view')">
+        <span class="icon">📖</span>
+        <span>Manual do Usuário</span>
+      </button>
+    </nav>
+  </div>
+
+  <div class="sidebar-footer">
+    <button type="button" id="btn-status-acesso" onclick="fazerLogin()"
+      style="
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: #fef3c7;
+        border: 2px solid #f59e0b;
+        color: #92400e;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      "
+    >
+      <span id="icone-status-acesso">🔑</span>
+      <span id="texto-status-acesso">Acesso Administrativo</span>
+    </button>
+
+    <div id="sidebar-user" style=" margin-top: 10px; font-size: 11px; color: #94a3b8; text-align: center;">
+      Perfil: Usuário de Consulta
+    </div>
+
+    <div id="sidebar-version" style="margin-top: 4px; font-size: 10px; color: #cbd5e1; text-align: center;">
+      v<span id="sidebar-version-num">2.1</span>
+    </div>
+  </div>
+</div>
+
+<script>
+function atualizarVersaoSidebar() {
+  var elemento = document.getElementById("sidebar-version-num");
+  if (!elemento) return;
+
+  var versao =
+    (typeof window.SISTEMA_VERSAO !== "undefined" && window.SISTEMA_VERSAO) ||
+    "3.12";
+
+  elemento.textContent = String(versao);
+}
+
+document.addEventListener("DOMContentLoaded", atualizarVersaoSidebar);
+</script>

@@ -1,0 +1,128 @@
+<!--
+==========================================================
+SISTEMA DE TELEFONES TJES
+Arquivo: Telefones.html
+==========================================================
+-->
+
+<div class="telefones-container">
+
+  <div class="page-header">
+    <div>
+      <h2>Telefones</h2>
+      <p id="telefones-subtitulo">Gerenciamento de telefones do Poder Judiciário do Estado do Espírito Santo</p>
+      <small id="telefones-escopo-info" style="display:none;color:#64748b;font-size:12px;margin-top:4px;"></small>
+    </div>
+
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+      <button type="button" id="btn-imprimir-todos-numeros" class="btn btn-secondary" onclick="imprimirTodosNumeros()" title="Imprimir todos os números cadastrados">
+        🖨️ Imprimir todos os números
+      </button>
+      <button type="button" id="btn-imprimir-esta-pagina" class="btn btn-secondary" onclick="imprimirEstaPagina()" title="Imprimir apenas a página/filtro atual" style="display:none;">
+        🖨️ Imprimir esta página
+      </button>
+      <button type="button" id="btn-novo-telefone" class="btn btn-primary" onclick="abrirModalNovoTelefone()">
+        + Novo telefone
+      </button>
+    </div>
+  </div>
+
+  <div class="search-panel">
+    <div class="search-box">
+      <span aria-hidden="true"
+        style="
+          position: absolute;
+          left: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #94a3b8;
+        "
+      >🔍</span>
+
+      <input id="campo-pesquisa" type="search" autocomplete="off"
+        placeholder="Pesquisar setor, comarca, telefone..."
+        oninput="pesquisarAutomaticamente()"
+        aria-label="Pesquisar telefones"
+      >
+    </div>
+
+    <div class="filters">
+
+      <div class="filter-group">
+        <label for="filtro-microrregiao"
+          style="
+            display: block;
+            margin-bottom: 4px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 600;
+          "
+        >Microrregião</label>
+
+        <select id="filtro-microrregiao" onchange="aplicarFiltros()">
+          <option value="">Todas as microrregiões</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="filtro-comarca"
+          style="
+            display: block;
+            margin-bottom: 4px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 600;
+          "
+        >Comarca</label>
+
+        <select id="filtro-comarca" onchange="aplicarFiltros()">
+          <option value="">Todas as comarcas</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="filtro-tipo"
+          style="
+            display: block;
+            margin-bottom: 4px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 600;
+          "
+        >Tipo</label>
+
+        <select id="filtro-tipo" onchange="aplicarFiltros()">
+          <option value="">Todos os tipos</option>
+        </select>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="table-panel">
+    <table id="tabela-telefones" class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 14%; text-align: left;">Comarca</th>
+          <th style="width: 32%; text-align: left;">Setor</th>
+          <th style="width: 10%; text-align: center;">Tipo</th>
+          <th style="width: 14%; text-align: center;">Telefone</th>
+          <th style="width: 8%; text-align: center;">Ramal</th>
+          <th style="width: 12%; text-align: center;">WhatsApp</th>
+          <th id="th-acoes" style="width: 10%; text-align: center;">Ações</th>
+        </tr>
+      </thead>
+
+      <tbody id="corpo-tabela-telefones">
+        <tr>
+          <td colspan="7" style="text-align: center; color: #64748b; padding: 20px;">
+            Carregando registros...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="paginacao-telefones" class="pagination" aria-label="Paginação de telefones"></div>
+
+</div>

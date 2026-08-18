@@ -1,0 +1,425 @@
+<!--
+==========================================================
+SISTEMA DE TELEFONES TJES
+Arquivo: Manual.html
+==========================================================
+-->
+
+<style>
+.manual-container{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.manual-hero{position:relative;overflow:hidden;padding:28px 26px;border-radius:16px;background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 55%,#3b82f6 100%);color:#fff;box-shadow:0 10px 28px -10px rgba(37,99,235,.45);border:0}
+.manual-hero::after{content:"\1F4D6";position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:54px;opacity:.18;pointer-events:none}
+.manual-hero h2{margin:0 0 6px;font-size:22px;font-weight:800;letter-spacing:.2px}
+.manual-hero p{margin:0;max-width:620px;font-size:13.5px;line-height:1.6;opacity:.92}
+.manual-hero-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.manual-hero-meta span{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.2);font-size:12px;font-weight:700;backdrop-filter:blur(4px)}
+.manual-toc-panel{padding:20px 22px}
+.manual-toc-panel h3{margin:0 0 14px;font-size:16px;color:#0f172a;display:flex;align-items:center;gap:8px}
+.manual-toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.manual-toc-grid a{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:10px;background:#f8fafc;border:1.4px solid #e2e8f0;color:#334155;text-decoration:none;font-size:13px;font-weight:600;transition:.16s;line-height:1.35}
+.manual-toc-grid a:hover{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;transform:translateY(-1px);box-shadow:0 4px 12px -4px rgba(37,99,235,.2)}
+.manual-toc-grid a .toc-num{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:999px;background:#fff;border:1px solid #e2e8f0;color:#64748b;font-size:11px;font-weight:800}
+.manual-toc-grid a:hover .toc-num{background:#2563eb;color:#fff;border-color:#2563eb}
+.manual-roles-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.manual-role-card{padding:18px 16px;border-radius:14px;background:#fff;border:1.4px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,.06);text-align:center;transition:.16s}
+.manual-role-card:hover{transform:translateY(-2px);box-shadow:0 10px 22px -10px rgba(15,23,42,.15)}
+.manual-role-card .role-ic{font-size:28px;margin-bottom:8px;display:block}
+.manual-role-card h4{margin:0 0 5px;font-size:14px;font-weight:800;color:#0f172a}
+.manual-role-card p{margin:0;font-size:12.5px;line-height:1.5;color:#64748b}
+.manual-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.25px;border:1.4px solid;white-space:nowrap}
+.badge-visitante{background:#f1f5f9;color:#475569;border-color:#cbd5e1}
+.badge-conteudo{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+.badge-sistema{background:#1e293b;color:#f8fafc;border-color:#334155}
+.badge-todos{background:#f0fdf4;color:#166534;border-color:#bbf7d0}
+.manual-section{padding:22px 24px;scroll-margin-top:16px}
+.manual-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.manual-section-head h3{margin:0;font-size:17px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:9px;line-height:1.3}
+.manual-section-head p{margin:6px 0 0;color:#64748b;font-size:13px;line-height:1.5;max-width:640px}
+.manual-section-head .badge-group{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.manual-steps{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:12px;counter-reset:manual-step}
+.manual-steps li{position:relative;display:flex;gap:13px;padding:14px 15px;border-radius:12px;background:#f8fafc;border:1.4px solid #e2e8f0;transition:.14s}
+.manual-steps li:hover{background:#ffffff;border-color:#cbd5e1;box-shadow:0 4px 12px -6px rgba(15,23,42,.12)}
+.manual-step-num{flex:0 0 30px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:999px;background:#2563eb;color:#fff;font-size:13px;font-weight:800;box-shadow:0 3px 8px rgba(37,99,235,.32);margin-top:1px}
+.manual-steps li strong{color:#0f172a;font-size:13.5px;display:block;margin-bottom:4px}
+.manual-steps li p{margin:0;color:#475569;font-size:13px;line-height:1.6}
+.manual-steps li p code{background:#e2e8f0;padding:1px 6px;border-radius:5px;font-size:12px;color:#0f172a}
+.manual-tip,.manual-warn,.manual-info{padding:12px 14px;border-radius:10px;font-size:12.5px;line-height:1.6;display:flex;gap:10px;align-items:flex-start;margin-top:12px;border:1.4px solid}
+.manual-tip{background:#f0fdf4;border-color:#bbf7d0;color:#14532d}
+.manual-warn{background:#fef3c7;border-color:#fcd34d;color:#7c2d12}
+.manual-info{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
+.manual-tip .mi,.manual-warn .mi,.manual-info .mi{font-size:16px;flex:0 0 auto;margin-top:1px}
+.manual-table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:10px;border:1.4px solid #e2e8f0;margin-top:12px;background:#fff}
+.manual-table th{padding:10px 12px;background:#f1f5f9;color:#334155;font-size:12px;font-weight:800;text-align:left;white-space:nowrap;border-bottom:1.4px solid #e2e8f0}
+.manual-table td{padding:10px 12px;font-size:13px;color:#334155;border-bottom:1px solid #f1f5f9;vertical-align:top;line-height:1.5}
+.manual-table tr:last-child td{border-bottom:0}
+.manual-table td:first-child{font-weight:700;color:#0f172a;white-space:nowrap}
+.manual-kbd{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:6px;background:#0f172a;color:#f8fafc;font-size:11px;font-weight:700;letter-spacing:.2px}
+.manual-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.manual-cols .panel{padding:14px 16px}
+.manual-faq{margin-top:10px;display:flex;flex-direction:column;gap:10px}
+.manual-faq details{padding:12px 14px;border-radius:10px;background:#f8fafc;border:1.4px solid #e2e8f0;cursor:pointer}
+.manual-faq details[open]{background:#fff;border-color:#cbd5e1;box-shadow:0 4px 12px -6px rgba(15,23,42,.12)}
+.manual-faq summary{font-size:13px;font-weight:700;color:#0f172a;list-style:none;display:flex;align-items:center;gap:8px}
+.manual-faq summary::-webkit-details-marker{display:none}
+.manual-faq details p{margin:8px 0 0;color:#475569;font-size:13px;line-height:1.6}
+.manual-divider{height:1px;background:#e2e8f0;margin:2px 0}
+.manual-footer-nav{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:4px}
+.manual-footer-nav a{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;background:#fff;border:1.4px solid #e2e8f0;color:#334155;font-size:12px;font-weight:700;text-decoration:none;transition:.15s}
+.manual-footer-nav a:hover{background:#f8fafc;border-color:#cbd5e1;color:#0f172a}
+@media(max-width:860px){.manual-roles-grid{grid-template-columns:1fr}.manual-cols{grid-template-columns:1fr}}
+/* dark mode */
+.dark-mode .manual-toc-panel h3,.dark-mode .manual-section-head h3,.dark-mode .manual-role-card h4{color:#f8fafc}
+.dark-mode .manual-toc-panel,.dark-mode .manual-section,.dark-mode .manual-role-card{background:#1e293b;border-color:#334155;color:#e2e8f0}
+.dark-mode .manual-toc-grid a{background:#0f172a;border-color:#334155;color:#cbd5e1}
+.dark-mode .manual-toc-grid a:hover{background:#1e293b;border-color:#3b82f6;color:#bfdbfe}
+.dark-mode .manual-toc-grid a .toc-num{background:#1e293b;border-color:#475569;color:#94a3b8}
+.dark-mode .manual-steps li{background:#0f172a;border-color:#334155}
+.dark-mode .manual-steps li:hover{background:#1e293b;border-color:#475569}
+.dark-mode .manual-steps li strong{color:#f8fafc}
+.dark-mode .manual-steps li p{color:#cbd5e1}
+.dark-mode .manual-steps li p code{background:#334155;color:#f8fafc}
+.dark-mode .manual-table{background:#0f172a;border-color:#334155}
+.dark-mode .manual-table th{background:#1e293b;color:#f8fafc;border-color:#334155}
+.dark-mode .manual-table td{color:#cbd5e1;border-color:#1e293b}
+.dark-mode .manual-table td:first-child{color:#f8fafc}
+.dark-mode .manual-tip{background:#052e16;border-color:#166534;color:#bbf7d0}
+.dark-mode .manual-warn{background:#451a03;border-color:#92400e;color:#fde68a}
+.dark-mode .manual-info{background:#1e1b4b;border-color:#3730a3;color:#bfdbfe}
+.dark-mode .manual-faq details{background:#0f172a;border-color:#334155}
+.dark-mode .manual-faq details[open]{background:#1e293b;border-color:#475569}
+.dark-mode .manual-faq summary{color:#f8fafc}
+.dark-mode .manual-faq details p{color:#cbd5e1}
+</style>
+
+<div class="manual-container">
+
+  <div class="page-header" style="margin-bottom:2px">
+    <div>
+      <h2 style="display:flex;align-items:center;gap:10px;margin:0 0 6px;font-size:22px">📖 Manual do Usuário</h2>
+      <p style="margin:0;color:#475569;font-size:13.5px;line-height:1.5">Guia completo — do primeiro acesso à gestão total. Escolha seu perfil e siga o passo a passo.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+        <span class="manual-badge badge-sistema">v3.4</span>
+        <span style="font-size:11px;color:#64748b;padding:5px 0">Google Apps Script Web App · Poder Judiciário do ES</span>
+      </div>
+    </div>
+    <button type="button" class="btn btn-secondary" onclick="window.print()" title="Imprimir / salvar em PDF">🖨️ Imprimir / PDF</button>
+  </div>
+
+  <!-- HERO -->
+  <div class="panel manual-hero">
+    <h2>Bem-vindo ao Sistema Inteligente de Gestão de Telefones</h2>
+    <p>Consulta pública rápida, gestão com trilha de auditoria e permissões por comarca. Este manual cobre todos os fluxos — <strong>Visitante</strong>, <strong>Gestor de Conteúdo</strong> e <strong>Gestor do Sistema</strong> — com telas, passos numerados e dicas de campo.</p>
+    <div class="manual-hero-meta">
+      <span>⚡ Consulta sem login</span>
+      <span>🔒 Acesso por cargo (conta Google @tjes.jus.br)</span>
+      <span>🏛️ Permissão por comarca</span>
+      <span>📋 Auditoria completa</span>
+    </div>
+  </div>
+
+  <!-- ÍNDICE -->
+  <div class="panel manual-toc-panel" id="manual-topo">
+    <h3>📑 Índice — clique para navegar</h3>
+    <div class="manual-toc-grid">
+      <a href="#manual-perfis" onclick="rolarManual('manual-perfis');return false"><span class="toc-num">01</span> Perfis e visão geral</a>
+      <a href="#manual-consultar" onclick="rolarManual('manual-consultar');return false"><span class="toc-num">02</span> Consultar telefones</a>
+      <a href="#manual-formulario" onclick="rolarManual('manual-formulario');return false"><span class="toc-num">03</span> Solicitar acesso (Formulário)</a>
+      <a href="#manual-telefones" onclick="rolarManual('manual-telefones');return false"><span class="toc-num">04</span> Gerenciar telefones (CRUD)</a>
+      <a href="#manual-comarca" onclick="rolarManual('manual-comarca');return false"><span class="toc-num">05</span> Fragmentação por comarca</a>
+      <a href="#manual-solicitacoes" onclick="rolarManual('manual-solicitacoes');return false"><span class="toc-num">06</span> Aprovar solicitações</a>
+      <a href="#manual-usuarios" onclick="rolarManual('manual-usuarios');return false"><span class="toc-num">07</span> Gerenciar usuários</a>
+      <a href="#manual-registro" onclick="rolarManual('manual-registro');return false"><span class="toc-num">08</span> Registro de Alterações</a>
+      <a href="#manual-dashboard" onclick="rolarManual('manual-dashboard');return false"><span class="toc-num">09</span> Dashboard</a>
+      <a href="#manual-config" onclick="rolarManual('manual-config');return false"><span class="toc-num">10</span> Configurações e Sair</a>
+      <a href="#manual-dicas" onclick="rolarManual('manual-dicas');return false"><span class="toc-num">11</span> Dicas e atalhos</a>
+      <a href="#manual-faq" onclick="rolarManual('manual-faq');return false"><span class="toc-num">12</span> Perguntas frequentes</a>
+    </div>
+  </div>
+
+  <!-- CARDS DE PERFIL -->
+  <div class="manual-roles-grid" id="manual-perfis">
+    <div class="manual-role-card">
+      <span class="role-ic">👁️</span>
+      <h4>Visitante</h4>
+      <p><strong>USUARIO_CONSULTA</strong><br>Sem login. Consulta tudo, solicita acesso, vê Registro e Configurações.</p>
+      <div style="margin-top:10px"><span class="manual-badge badge-visitante">👁️ Consulta pública</span></div>
+    </div>
+    <div class="manual-role-card" style="border-color:#bfdbfe">
+      <span class="role-ic">✏️</span>
+      <h4>Gestor de Conteúdo</h4>
+      <p><strong>GESTOR_CONTEUDO</strong><br>Edita telefones (dentro das comarcas permitidas). Vê Dashboard completo.</p>
+      <div style="margin-top:10px"><span class="manual-badge badge-conteudo">✏️ Edita com escopo</span></div>
+    </div>
+    <div class="manual-role-card" style="border-color:#1e293b">
+      <span class="role-ic">🛡️</span>
+      <h4>Gestor do Sistema</h4>
+      <p><strong>GESTOR_SISTEMA</strong><br>Acesso total: telefones, solicitações, usuários, logs e todas as comarcas.</p>
+      <div style="margin-top:10px"><span class="manual-badge badge-sistema">🛡️ Acesso total</span></div>
+    </div>
+  </div>
+
+  <div class="panel" style="padding:16px 18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:#475569"><span style="font-size:18px">🔑</span> <strong style="color:#0f172a">Como o acesso funciona:</strong> login é automático pela conta Google. Quem está na aba <code>USUARIOS</code> com <code>GESTOR_SISTEMA</code> ou <code>GESTOR_CONTEUDO</code> ativo entra no cargo; demais continuam Visitantes.</div>
+    <span class="manual-badge badge-todos">Domínio: @tjes.jus.br</span>
+  </div>
+
+  <table class="manual-table" aria-label="Comparativo de perfis">
+    <thead><tr><th>Recurso</th><th style="text-align:center">👁️ Visitante</th><th style="text-align:center">✏️ Gestor Conteúdo</th><th style="text-align:center">🛡️ Gestor Sistema</th></tr></thead>
+    <tbody>
+      <tr><td>Consultar telefones</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td></tr>
+      <tr><td>Ver mapa do ES e detalhes do setor</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td></tr>
+      <tr><td>Solicitar acesso (Formulário)</td><td style="text-align:center">✅</td><td style="text-align:center">—</td><td style="text-align:center">—</td></tr>
+      <tr><td>Dashboard (totais e gráficos)</td><td style="text-align:center">—</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td></tr>
+      <tr><td>Adicionar / editar / excluir telefones</td><td style="text-align:center">—</td><td style="text-align:center">✅ dentro do escopo</td><td style="text-align:center">✅ todas</td></tr>
+      <tr><td>Aprovar / rejeitar solicitações</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">✅</td></tr>
+      <tr><td>Gerenciar usuários e comarcas</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">✅</td></tr>
+      <tr><td>Registro de Alterações</td><td style="text-align:center">✅ leitura</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td></tr>
+      <tr><td>Configurações / Modo escuro / Sair</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 02 CONSULTAR -->
+  <section id="manual-consultar" class="panel manual-section">
+    <div class="manual-section-head">
+      <div>
+        <h3>🔍 02 — Consultar telefones</h3>
+        <p>Acesso livre, sem login. Mapa, filtros e contatos clicáveis (telefone, WhatsApp, e-mail).</p>
+      </div>
+      <div class="badge-group"><span class="manual-badge badge-visitante">👁️ Visitante</span><span class="manual-badge badge-conteudo">✏️ Conteúdo</span><span class="manual-badge badge-sistema">🛡️ Sistema</span></div>
+    </div>
+    <ol class="manual-steps">
+      <li><span class="manual-step-num">1</span><div><strong>Clique em “Telefones” na barra lateral</strong><p>Visitantes vão para a <code>consulta-telefones-view</code> (mapa); gestores vão para a tabela de gestão. Use também <span class="manual-kbd">🔍 Filtrar comarcas ou setores</span> no topo.</p></div></li>
+      <li><span class="manual-step-num">2</span><div><strong>Selecione a microrregião</strong><p>No seletor <code>Microrregião</code> escolha a região do ES. A lista da esquerda carrega as <strong>comarcas</strong> da região.</p></div></li>
+      <li><span class="manual-step-num">3</span><div><strong>Abra a comarca e escolha o setor</strong><p>Clique na comarca para expandir os <strong>setores</strong>. Clique no setor para ver os detalhes à direita — telefones, ramais, WhatsApp, e-mail e endereço agrupados.</p></div></li>
+      <li><span class="manual-step-num">4</span><div><strong>Use os contatos</strong><p><code>Telefone</code> abre o discador (<code>tel:</code>), <code>WhatsApp</code> abre <code>wa.me</code>, <code>E-mail</code> abre <code>mailto:</code>. Valores vazios aparecem como “—”.</p></div></li>
+      <li><span class="manual-step-num">5</span><div><strong>Imprima ou salve em PDF</strong><p>Com um setor aberto, clique em <span class="manual-kbd">🖨️ Imprimir / PDF</span> no topo da direita. A impressão traz apenas os detalhes do setor.</p></div></li>
+    </ol>
+    <div class="manual-tip"><span class="mi">💡</span><div><strong>Dica:</strong> digite no campo de busca para filtrar comarcas/setores instantaneamente — não precisa apertar Enter.</div></div>
+    <div class="manual-info"><span class="mi">🗺️</span><div><strong>Mapa:</strong> enquanto nenhum setor está selecionado, o painel da direita mostra o mapa do ES. Ao abrir um setor, o mapa é substituído pelos contatos; use <em>“Ver mapa”</em> para voltar.</div></div>
+  </section>
+
+  <!-- 03 FORMULÁRIO -->
+  <section id="manual-formulario" class="panel manual-section">
+    <div class="manual-section-head">
+      <div>
+        <h3>📝 03 — Solicitar acesso (Formulário)</h3>
+        <p>Qualquer visitante com e-mail <strong>@tjes.jus.br</strong> pode pedir cargo. Gestores não veem este menu.</p>
+      </div>
+      <div class="badge-group"><span class="manual-badge badge-visitante">👁️ Visitante</span></div>
+    </div>
+    <ol class="manual-steps">
+      <li><span class="manual-step-num">1</span><div><strong>Abra “Formulário de Acesso”</strong><p>Na barra lateral clique em <code>📝 Formulário de Acesso</code> ou no botão amarelo <code>Solicitar Acesso</code> no rodapé.</p></div></li>
+      <li><span class="manual-step-num">2</span><div><strong>Preencha Nome, Comarca, E-mail e Perfil</strong><p><code>Nome completo</code> (obrigatório), <code>Comarca onde trabalha</code> — digite para buscar e selecione na lista —, <code>E-mail institucional</code> deve terminar em <code>@tjes.jus.br</code>, e <code>Perfil solicitado</code> (Gestor de Conteúdo ou Gestor do Sistema).</p></div></li>
+      <li><span class="manual-step-num">3</span><div><strong>Escreva a justificativa</strong><p>Mínimo de <strong>10 caracteres</strong>. Explique função/cargo e necessidade. Ex.: <em>“Servidor da comarca de Vitória, responsável pela atualização dos ramais da vara cível.”</em></p></div></li>
+      <li><span class="manual-step-num">4</span><div><strong>Envie e aguarde aprovação</strong><p>Clique em <span class="manual-kbd">Enviar solicitação</span>. Status inicial <code>PENDENTE</code>. O Gestor do Sistema aprova/rejeita em <em>Solicitações de Acesso</em>.</p></div></li>
+    </ol>
+    <div class="manual-warn"><span class="mi">⚠️</span><div><strong>Conta errada?</strong> Se você tem várias contas Google logadas, o navegador pode usar a conta pessoal. Clique em <span class="manual-kbd">Trocar de conta Google</span> e escolha a conta <code>@tjes.jus.br</code> no seletor.</div></div>
+    <div class="manual-info"><span class="mi">ℹ️</span><div><strong>Onde cai o pedido:</strong> a solicitação é gravada na aba <code>Solicitações de Acesso do sistema</code> da planilha (colunas: E-mail, Nome, Comarca, Perfil solicitado, Justificativa, Status, Datas, Aprovador).</div></div>
+  </section>
+
+  <!-- 04 TELEFONES CRUD -->
+  <section id="manual-telefones" class="panel manual-section">
+    <div class="manual-section-head">
+      <div>
+        <h3>☎️ 04 — Gerenciar telefones (adicionar / editar / excluir)</h3>
+        <p>Tela <strong>Telefones</strong> (tabela). Apenas gestores veem o botão “+ Novo telefone” e as ações.</p>
+      </div>
+      <div class="badge-group"><span class="manual-badge badge-conteudo">✏️ Conteúdo</span><span class="manual-badge badge-sistema">🛡️ Sistema</span></div>
+    </div>
+    <ol class="manual-steps">
+      <li><span class="manual-step-num">1</span><div><strong>Acesse Telefones como gestor</strong><p>Faça login (conta com cargo ativo) e clique em <code>☎ Telefones</code>. No topo você verá o subtítulo com suas comarcas permitidas (se for Gestor de Conteúdo).</p></div></li>
+      <li><span class="manual-step-num">2</span><div><strong>Filtre e pesquise</strong><p>Use <span class="manual-kbd">🔍 Pesquisar</span> (setor, comarca, telefone…), e os seletores <code>Microrregião</code>, <code>Comarca</code> e <code>Tipo</code>. A tabela pagina automaticamente.</p></div></li>
+      <li><span class="manual-step-num">3</span><div><strong>Adicionar: “+ Novo telefone”</strong><p>Clique no botão azul, preencha <code>Microrregião *</code>, <code>Comarca *</code>, <code>Setor *</code>, <code>Status *</code> e ao menos um contato (Telefone/Ramal/WhatsApp/E-mail/Endereço). Clique <span class="manual-kbd">Salvar</span>. Validação impede comarca fora do seu escopo.</p></div></li>
+      <li><span class="manual-step-num">4</span><div><strong>Editar: ícone ✏️ na linha</strong><p>Na coluna <strong>Ações</strong> clique em <code>Editar</code>. Linhas fora do seu escopo mostram <code>🔒 Solicitar acesso</code> em vez do lápis. Altere os campos e salve.</p></div></li>
+      <li><span class="manual-step-num">5</span><div><strong>Excluir: ícone 🗑️ + confirmação</strong><p>Clique em <code>Excluir</code>, confirme em <em>“Tem certeza?”</em> → <span class="manual-kbd">Sim, excluir</span>. A ação é registrada no histórico e não pode ser desfeita.</p></div></li>
+      <li><span class="manual-step-num">6</span><div><strong>Campos do modal</strong><p><code>Microrregião</code>, <code>Comarca</code>, <code>Setor</code>, <code>Tipo</code> (Telefone/Ramal/WhatsApp), <code>Telefone</code> com máscara <code>(27) 0000-0000</code>, <code>Ramal</code>, <code>WhatsApp</code>, <code>E-mail</code>, <code>Endereço</code>, <code>Status</code> (Ativo/Inativo), <code>Observação</code>.</p></div></li>
+    </ol>
+    <div class="manual-cols">
+      <div class="panel" style="background:#f0fdf4;border-color:#bbf7d0"><strong style="color:#166534">✅ Permitido</strong><p style="margin:6px 0 0;color:#14532d;font-size:12.5px;line-height:1.6">Gestor do Sistema em qualquer comarca.<br>Gestor de Conteúdo dentro das comarcas listadas na sua linha em <code>USUARIOS</code> (vazio = todas).</p></div>
+      <div class="panel" style="background:#fef3c7;border-color:#fcd34d"><strong style="color:#92400e">🔒 Bloqueado</strong><p style="margin:6px 0 0;color:#7c2d12;font-size:12.5px;line-height:1.6">Gestor de Conteúdo fora do escopo vê <code>🔒 Solicitar acesso</code>. Use o botão para pedir a comarca ao Gestor do Sistema.</p></div>
+    </div>
+  </section>
+
+  <!-- 05 COMARCA FRAGMENTAÇÃO -->
+  <section id="manual-comarca" class="panel manual-section" style="border-left:4px solid #2563eb">
+    <div class="manual-section-head">
+      <div>
+        <h3>🏛️ 05 — Fragmentação por comarca (escopo)</h3>
+        <p>O pilar de permissão do sistema: quem vê e edita o quê. Configure na aba <code>USUARIOS</code>.</p>
+      </div>
+      <div class="badge-group"><span class="manual-badge badge-conteudo">✏️ Conteúdo</span><span class="manual-badge badge-sistema">🛡️ Sistema</span></div>
+    </div>
+    <ol class="manual-steps">
+      <li><span class="manual-step-num">1</span><div><strong>Onde fica:</strong><p>Aba <code>USUARIOS</code>da planilha, coluna <code>COMARCAS</code> (lista separada por vírgula). Também editável no painel <em>Usuários</em> (seletor com busca + checkboxes).</p></div></li>
+      <li><span class="manual-step-num">2</span><div><strong>Regra de ouro:</strong><p><code>COMARCAS = vazio (em branco)</code> → <strong>acesso a todas as comarcas</strong>. <code>COMARCAS = “Vitória, Vila Velha”</code> → só essas duas. Nomes são normalizados (acentos e caixa ignorados).</p></div></li>
+      <li><span class="manual-step-num">3</span><div><strong>Como funciona na interface:</strong><p>Em <em>Telefones</em> o subtítulo mostra <code>“suas comarcas: Vitória, Vila Velha”</code> e um aviso amarelo explica o limite. Linhas fora do escopo não são editáveis.</p></div></li>
+      <li><span class="manual-step-num">4</span><div><strong>Validação no servidor:</strong><p>Mesmo burlando o frontend, a <code>API</code> rejeita criação/edição/exclusão fora do escopo. A busca e a consulta também só devolvem registros permitidos.</p></div></li>
+      <li><span class="manual-step-num">5</span><div><strong>Pedido de nova comarca:</strong><p>Se aparecer <code>🔒 Solicitar acesso</code>, clique no botão da linha — ele abre <code>solicitarPermissaoComarca(comarca)</code> e cria uma solicitação para o Gestor do Sistema aprovar.</p></div></li>
+    </ol>
+    <div class="manual-info"><span class="mi">ℹ️</span><div><strong>Exemplos:</strong> <code>Vitória</code> | <code>Cachoeiro de Itapemirim, Vitória, Serra</code> | <code>(vazio)</code> = todas. Separe por vírgula, ponto-e-vírgula ou quebra de linha.</div></div>
+  </section>
+
+  <!-- 06 SOLICITAÇÕES -->
+  <section id="manual-solicitacoes" class="panel manual-section">
+    <div class="manual-section-head">
+      <div>
+        <h3>👥 06 — Aprovar solicitações de acesso</h3>
+        <p>Fila de pedidos com status <code>PENDENTE → APROVADO / REJEITADO</code>. Auditoria com aprovador e data.</p>
+      </div>
+      <div class="badge-group"><span class="manual-badge badge-sistema">🛡️ Sistema</span></div>
+    </div>
+    <ol class="manual-steps">
+      <li><span class="manual-step-num">1</span><div><strong>Abra “Solicitações de Acesso”</strong><p>Visível apenas para Gestor do Sistema. Clique em <code>👥 Solicitações de Acesso</code> na barra lateral.</p></div></li>
+      <li><span class="manual-step-num">2</span><div><strong>Analise a linha</strong><p>Colunas: <code>E-mail</code>, <code>Nome</code>, <code>Comarca</code>, <code>Justificativa</code>, <code>Status</code> (badge amarelo = pendente, verde = aprovado, vermelho = rejeitado).</p></div></li>
+      <li><span class="manual-step-num">3</span><div><strong>Aprove ou rejeite</strong><p>Em pendentes aparecem <span class="manual-kbd">✅ Aprovar</span> e <span class="manual-kbd">❌ Rejeitar</span>. Ao aprovar, o usuário é criado/atualizado em <code>USUARIOS</code> com o perfil solicitado e fica ativo; e-mail de notificação entra na fila <code>EMAILS_PENDENTES</code>.</p></div></li>
+      <li><span class="manual-step-num">4</span><div><strong>Atualize a lista</strong><p>O painel recarrega sozinho após a ação. Use <span class="manual-kbd">🔄 Atualizar</span> para recarregar manualmente.</p></div></li>
+    </ol>
+    <div class="manual-tip"><span class="mi">💡</span><div><strong>Fila de e-mails:</strong> o trigger <code>instalarTriggerEmails()</code> processa a aba <code>EMAILS_PENDENTES</code> a cada minuto. Verifique <code>CONFIGURACAO → EMAIL_GESTOR</code> se o gestor não recebeu aviso.</div></div>
+  </section>
+
+  <!-- 07 USUÁRIOS -->
+  <section id="manual-usuarios" class="panel manual-section">
+    <div class="manual-section-head">
+      <div>
+        <h3>🧑‍💼 07 — Gerenciar usuários</h3>
+        <p>Painel exclusivo do Gestor do Sistema. Altera perfil, ativa/desativa e define escopo de comarcas.</p>
+      </div>
+      <div class="badge-group"><span class="manual-badge badge-sistema">🛡️ Sistema</span></div>
+    </div>
+    <ol class="manual-steps">
+      <li><span class="manual-step-num">1</span><div><strong>Abra “Usuários”</strong><p>Clique em <code>🧑‍💼 Usuários</code>. A tabela carrega E-mail, Nome, Perfil, Comarcas (vazio = todas), Ativo e Ações.</p></div></li>
+      <li><span class="manual-step-num">2</span><div><strong>Edite inline</strong><p>Mude o <code>Perfil</code> no select (<code>GESTOR_SISTEMA</code> / <code>GESTOR_CONTEUDO</code> / <code>Visitante</code>), o checkbox <code>Ativo</code> e as <code>Comarcas</code> pelo seletor (busca + checkboxes, <span class="manual-kbd">Limpar</span> = todas, <span class="manual-kbd">OK</span> fecha).</p></div></li>
+      <li><span class="manual-step-num">3</span><div><strong>Salve</strong><p>Clique em <span class="manual-kbd">Salvar</span> na linha. O backend valida: não é possível rebaixar o <strong>último Gestor do Sistema ativo</strong> nem editar a própria conta por este painel.</p></div></li>
+      <li><span class="manual-step-num">4</span><div><strong>Entenda “Visitante”</strong><p>Ao salvar como <code>Visitante</code> o usuário perde o cargo administrativo e <strong>some desta lista</strong> (a lista mostra só quem tem cargo). Para reativar, aprove nova solicitação ou edite direto na planilha.</p></div></li>
+    </ol>
+    <div class="manual-warn"><span class="mi">⚠️</span><div><strong>Trava de segurança:</strong> o sistema impede remover o último <code>GESTOR_SISTEMA</code> ativo. Mantenha ao menos dois gestores para evitar lockout.</div></div>
+    <div class="manual-info"><span class="mi">ℹ️</span><div><strong>Atalho planilha:</strong> edições diretas na aba <code>USUARIOS</code> também valem — mas prefira o painel para validar e registrar.</div></div>
+  </section>
+
+  <!-- 08 REGISTRO -->
+  <section id="manual-registro" class="panel manual-section">
+    <div class="manual-section-head">
+      <div>
+        <h3>📋 08 — Registro de Alterações</h3>
+        <p>Auditoria imutável de tudo que mudou na base. Visível para todos (leitura).</p>
+      </div>
+      <div class="badge-group"><span class="manual-badge badge-visitante">👁️</span><span class="manual-badge badge-conteudo">✏️</span><span class="manual-badge badge-sistema">🛡️</span></div>
+    </div>
+    <ol class="manual-steps">
+      <li><span class="manual-step-num">1</span><div><strong>Abra “Registro de Alterações”</strong><p>Clique em <code>📋 Registro de Alterações</code>. O histórico carrega com <code>Data</code>, <code>Ação</code> (CRIAÇÃO/EDIÇÃO/EXCLUSÃO), <code>Usuário</code>, <code>Comarca</code>, <code>Setor</code> e antes/depois quando aplicável.</p></div></li>
+      <li><span class="manual-step-num">2</span><div><strong>Interprete a ação</strong><p><code>CRIAÇÃO</code> mostra só “depois”, <code>EXCLUSÃO</code> mostra só “antes”, <code>EDIÇÃO</code> mostra ambos para comparar. Usuário é o e-mail que executou.</p></div></li>
+      <li><span class="manual-step-num">3</span><div><strong>Imprima</strong><p>Use o botão de impressão do Registro (mesma lógica da consulta) — a impressão traz cabeçalho e tabela completos.</p></div></li>
+    </ol>
+    <div class="manual-tip"><span class="mi">💡</span><div><strong>Onde fica na planilha:</strong> aba <code>HISTORICO</code>. Não edite manualmente — é preenchida por <code>HistoryService</code> e usada para auditoria.</div></div>
+  </section>
+
+  <!-- 09 DASHBOARD -->
+  <section id="manual-dashboard" class="panel manual-section">
+    <div class="manual-section-head">
+      <div>
+        <h3>📊 09 — Dashboard</h3>
+        <p>Visão gerencial com totais e gráficos. Exclusivo para gestores.</p>
+      </div>
+      <div class="badge-group"><span class="manual-badge badge-conteudo">✏️</span><span class="manual-badge badge-sistema">🛡️</span></div>
+    </div>
+    <ol class="manual-steps">
+      <li><span class="manual-step-num">1</span><div><strong>Abra “Dashboard”</strong><p>Na barra lateral clique <code>🏠 Dashboard</code>. Visitantes não veem o menu — se tentarem acessar, o sistema redireciona para a consulta.</p></div></li>
+      <li><span class="manual-step-num">2</span><div><strong>Leia os cards</strong><p><code>Total de contatos</code> (linhas ativas), <code>Quantidade de setores</code> (setores distintos), <code>Tipos cadastrados</code> (Telefone/Ramal/WhatsApp etc.).</p></div></li>
+      <li><span class="manual-step-num">3</span><div><strong>Analise os gráficos</strong><p><code>Contatos por tipo</code> e <code>Contatos por comarca</code> — úteis para achar comarcas desatualizadas.</p></div></li>
+    </ol>
+    <div class="manual-info"><span class="mi">ℹ️</span><div><strong>Cache:</strong> o Dashboard reutiliza a mesma carga da consulta (<code>CacheService</code> + <code>TELEFONES_LISTA_V2</code>). Dados são atualizados a cada salvamento/refresh.</div></div>
+  </section>
+
+  <!-- 10 CONFIG E SAIR -->
+  <section id="manual-config" class="panel manual-section">
+    <div class="manual-section-head">
+      <div>
+        <h3>⚙️ 10 — Configurações e Sair</h3>
+        <p>Preferências locais, dados do sistema e encerramento de sessão.</p>
+      </div>
+      <div class="badge-group"><span class="manual-badge badge-visitante">👁️</span><span class="manual-badge badge-conteudo">✏️</span><span class="manual-badge badge-sistema">🛡️</span></div>
+    </div>
+    <ol class="manual-steps">
+      <li><span class="manual-step-num">1</span><div><strong>Abra “Configurações”</strong><p>Clique em <code>⚙ Configurações</code>. Veja <code>Versão</code> (ex.: 3.4), <code>Ambiente</code> (Google Apps Script Web App), <code>URLs pública/administrativa</code> e <code>Status da Base</code>.</p></div></li>
+      <li><span class="manual-step-num">2</span><div><strong>Modo escuro</strong><p>Alterne o switch <code>Aparência</code>. A escolha é salva em <code>localStorage.darkMode</code> e vale só neste navegador.</p></div></li>
+      <li><span class="manual-step-num">3</span><div><strong>Veja a conta conectada</strong><p><code>Conta conectada</code> mostra e-mail e perfil (ou “sem cargo” / “acesso anônimo”). A sidebar também exibe <code>Perfil: …</code> e a versão.</p></div></li>
+      <li><span class="manual-step-num">4</span><div><strong>Sair (voltar a Visitante)</strong><p>O botão no rodapé muda de estado: <code>Solicitar Acesso</code> (visitante) → <code style="background:#fee2e2;border:1px solid #dc2626;padding:2px 6px;border-radius:6px;color:#991b1b;font-weight:700;font-size:11px">SAIR</code> (logado). Clique em SAIR, confirme — a sessão é encerrada no servidor (<code>encerrarSessao</code>) e localmente você volta ao modo consulta sem redirect externo.</p></div></li>
+    </ol>
+    <div class="manual-warn"><span class="mi">⚠️</span><div><strong>Múltiplas contas Google:</strong> se o botão mostrar “Trocar de conta Google”, clique nele — você será levado ao <code>AccountChooser</code> com dica <code>hd=tjes.jus.br</code> para escolher a conta institucional.</div></div>
+  </section>
+
+  <!-- 11 DICAS -->
+  <section id="manual-dicas" class="panel manual-section" style="background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%)">
+    <div class="manual-section-head">
+      <div>
+        <h3>💡 11 — Dicas e atalhos</h3>
+        <p>Ganhe tempo e evite erros comuns.</p>
+      </div>
+      <div class="badge-group"><span class="manual-badge badge-todos">Todos os perfis</span></div>
+    </div>
+    <div class="manual-cols">
+      <div class="panel">
+        <strong>🔎 Busca inteligente</strong>
+        <p style="margin:8px 0 0;color:#475569;font-size:13px;line-height:1.6">Na tabela Telefones, digite no campo de busca — a pesquisa é automática (<code>pesquisarAutomaticamente()</code>) e filtra por setor, comarca e telefone sem recarregar a página. Mínimo 2 caracteres (<code>LIMITES.TAMANHO_PESQUISA</code>).</p>
+        <div class="manual-tip" style="margin-top:10px"><span class="mi">⌨️</span><div><strong>Atalho:</strong> <span class="manual-kbd">Ctrl</span> + <span class="manual-kbd">K</span> foca a busca (quando disponível). <span class="manual-kbd">Esc</span> fecha modais.</div></div>
+      </div>
+      <div class="panel">
+        <strong>🏛️ Nome da comarca importa</strong>
+        <p style="margin:8px 0 0;color:#475569;font-size:13px;line-height:1.6">Digite exatamente como está no mapa (ex.: “Cachoeiro de Itapemirim”, não “Cachoeiro”). A validação compara nomes normalizados — acentos são ignorados, mas erros de grafia bloqueiam o salvamento.</p>
+        <div class="manual-warn" style="margin-top:10px"><span class="mi">⚠️</span><div>Comarca nova? Avise o Gestor do Sistema para garantir que ela exista na base antes de cadastrar.</div></div>
+      </div>
+    </div>
+    <div class="manual-cols">
+      <div class="panel">
+        <strong>📋 Antes de cadastrar</strong>
+        <p style="margin:8px 0 0;color:#475569;font-size:13px;line-height:1.6">Confira se o setor já existe na comarca (busque na consulta). Evite duplicar: o sistema agrupa por setor na consulta, então dois registros iguais do mesmo setor aparecem juntos.</p>
+      </div>
+      <div class="panel">
+        <strong>🖨️ Impressão limpa</strong>
+        <p style="margin:8px 0 0;color:#475569;font-size:13px;line-height:1.6">Tanto a consulta quanto o Registro têm CSS de impressão dedicado — só o conteúdo útil sai no papel/PDF. Use o botão de impressão da própria view, não o do navegador.</p>
+      </div>
+    </div>
+    <div class="manual-info"><span class="mi">ℹ️</span><div><strong>Abas da planilha (referência técnica):</strong> <code>TELEFONES</code> · <code>USUARIOS</code> (com <code>COMARCAS</code>) · <code>Solicitações de Acesso do sistema</code> · <code>CONFIGURACAO</code> · <code>HISTORICO</code> · <code>LOG</code> · <code>EMAILS_PENDENTES</code>. Nunca edite <code>ID</code> ou <code>HISTORICO</code> manualmente.</div></div>
+  </section>
+
+  <!-- 12 FAQ -->
+  <section id="manual-faq" class="panel manual-section">
+    <div class="manual-section-head">
+      <div>
+        <h3>❓ 12 — Perguntas frequentes</h3>
+        <p>Respostas rápidas para os casos mais comuns.</p>
+      </div>
+    </div>
+    <div class="manual-faq">
+      <details><summary>🔑 Por que continuo como Visitante mesmo logado com Google?</summary><p>Sua conta não está na aba <code>USUARIOS</code> com <code>GESTOR_SISTEMA</code> ou <code>GESTOR_CONTEUDO</code> <strong>ativo</strong>. Peça acesso pelo Formulário ou peça ao Gestor do Sistema para te cadastrar. Se tem várias contas logadas, use <em>Trocar de conta Google</em> e selecione a <code>@tjes.jus.br</code>.</p></details>
+      <details><summary>🔒 Vejo “Solicitar acesso” no lugar de Editar. Por quê?</summary><p>Você é Gestor de Conteúdo com escopo limitado. A linha pertence a uma comarca fora das suas comarcas permitidas (coluna <code>COMARCAS</code> em <code>USUARIOS</code>). Clique no botão para pedir a comarca ou peça ao Gestor do Sistema para ampliar seu escopo.</p></details>
+      <details><summary>📝 Enviei o formulário, e agora?</summary><p>Seu pedido fica <code>PENDENTE</code> na aba <code>Solicitações de Acesso do sistema</code>. O Gestor do Sistema aprova em <em>Solicitações de Acesso</em> → seu e-mail entra em <code>USUARIOS</code> e você recebe notificação por e-mail (fila processada a cada minuto).</p></details>
+      <details><summary>🗺️ O mapa sumiu depois de voltar do navegador?</summary><p>O sistema recupera o estado no evento <code>pageshow</code> (bfcache). Clique em <em>Telefones</em> novamente ou use <em>Ver mapa</em> nos detalhes. Se persistir, recarregue a página.</p></details>
+      <details><summary>🌙 O modo escuro não pegou / voltou ao claro?</summary><p>A preferência é salva em <code>localStorage</code> por navegador. Cada navegador/dispositivo guarda separado. Alterne novamente em <em>Configurações → Aparência</em>.</p></details>
+      <details><summary>👥 Cadastrei um usuário como Visitante e ele sumiu da lista. Erro?</summary><p>Não — Visitantes não têm cargo e somem da lista de <em>Usuários</em> (que só lista quem tem cargo). Para reativar, aprove nova solicitação ou edite direto na aba <code>USUARIOS</code> da planilha.</p></details>
+      <details><summary>🛡️ Por que não consigo me rebaixar ou remover o último gestor?</summary><p>Trava de segurança: o sistema impede editar a própria conta pelo painel e remover o último <code>GESTOR_SISTEMA</code> ativo para evitar lockout.</p></details>
+    </div>
+    <div class="manual-footer-nav" style="margin-top:16px">
+      <a href="#manual-topo" onclick="rolarManual('manual-topo');return false">⬆️ Voltar ao topo</a>
+      <a href="#manual-consultar" onclick="rolarManual('manual-consultar');return false">🔍 Consultar telefones</a>
+      <a href="#manual-formulario" onclick="rolarManual('manual-formulario');return false">📝 Formulário de Acesso</a>
+    </div>
+  </section>
+
+  <div class="panel" style="text-align:center;padding:18px;color:#64748b;font-size:12px;line-height:1.6">
+    <strong style="color:#0f172a">Sistema Inteligente de Gestão de Telefones do PJES</strong> · v3.4 · Google Apps Script Web App<br>
+    Dúvidas técnicas: verifique a aba <code>LOG</code> na planilha e a versão na sidebar (<code>v3.4</code>). Para suporte, contate o Gestor do Sistema da sua comarca.
+  </div>
+
+</div>
+
+<script>
+function rolarManual(id){
+  var alvo=document.getElementById(id);
+  var cont=document.querySelector('.main-container')||document.scrollingElement||document.documentElement;
+  if(!alvo||!cont) return;
+  var top=alvo.getBoundingClientRect().top + (cont.scrollTop||window.scrollY) - (cont.getBoundingClientRect?cont.getBoundingClientRect().top:0) - 16;
+  try{ cont.scrollTo({top:top,behavior:'smooth'}); }catch(e){ cont.scrollTop=top; }
+  try{ history.replaceState(null,'','#'+id); }catch(e){}
+}
+</script>

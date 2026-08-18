@@ -1,0 +1,88 @@
+<!--
+==========================================================
+SISTEMA DE TELEFONES TJES
+Arquivo: ErroAcessoRestrito.html
+==========================================================
+-->
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f4f6f9;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+      }
+
+      .card {
+        background-color: #ffffff;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        width: 100%;
+        max-width: 450px;
+        border-top: 5px solid #dc3545;
+      }
+
+      .icon {
+        font-size: 50px;
+        color: #dc3545;
+        margin-bottom: 20px;
+      }
+
+      h2 {
+        color: #333333;
+        margin: 0 0 15px;
+        font-size: 22px;
+      }
+
+      p {
+        color: #666666;
+        font-size: 15px;
+        line-height: 1.5;
+        margin: 0 0 30px;
+      }
+
+      .btn {
+        display: inline-block;
+        background-color: #0056b3;
+        color: #ffffff;
+        border: none;
+        padding: 12px 24px;
+        font-size: 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        font-weight: bold;
+        transition: background 0.2s;
+      }
+
+      .btn:hover {
+        background-color: #004085;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="card">
+      <div class="icon">🚫</div>
+
+      <h2>Acesso restrito!</h2>
+
+      <p>Apenas usuários com conta institucional do TJES podem acessar a área administrativa deste sistema.</p>
+
+      <a class="btn" href="<?= urlAlternarConta ?>" target="_blank" rel="noopener noreferrer">Alternar Conta Google</a>
+    </div>
+  </body>
+</html>

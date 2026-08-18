@@ -1,0 +1,801 @@
+<script>
+/**
+ * ==========================================================
+ * SISTEMA DE TELEFONES TJES
+ * Arquivo: ConsultarJS.html
+ * ==========================================================
+ */
+
+const URL_MAPA_ES =
+  "https://www.educacaonamao.com.br/wp-content/uploads/2019/11/mapa-districao-regioes-espirito-santo-596x1024.jpg";
+
+/* ==========================================================
+ * INICIALIZAÇÃO
+ * ========================================================== */
+
+function carregarTelefones() {
+  if (typeof iniciarConsultaTelefones === "function") {
+    iniciarConsultaTelefones();
+  }
+}
+
+/* ==========================================================
+ * AGRUPAMENTO
+ * ========================================================== */
+
+function contatoPreenchido(valor) {
+  const v = String(valor || "").trim();
+
+  return (
+    v !== "" &&
+    v !== "-" &&
+    v !== "–" &&
+    v !== "—"
+  );
+}
+
+function agruparContatosDoSetor(registros) {
+  const resultado = {
+    telefones: [],
+    ramais: [],
+    whatsapps: [],
+    emails: [],
+    enderecos: []
+  };
+
+  const vistos = {
+    telefones: new Set(),
+    ramais: new Set(),
+    whatsapps: new Set(),
+    emails: new Set(),
+    enderecos: new Set()
+  };
+
+  function adicionar(tipo, valor) {
+    const texto =
+      String(valor || "").trim();
+
+    if (
+      !contatoPreenchido(texto) ||
+      vistos[tipo].has(texto)
+    ) {
+      return;
+    }
+
+    vistos[tipo].add(texto);
+    resultado[tipo].push(texto);
+  }
+
+  (
+    Array.isArray(registros)
+      ? registros
+      : []
+  ).forEach(registro => {
+    adicionar(
+      "telefones",
+      campoTelefone(registro, [
+        "telefone",
+        "TELEFONE",
+        "numero",
+        "NUMERO"
+      ])
+    );
+
+    adicionar(
+      "ramais",
+      campoTelefone(registro, [
+        "ramal",
+        "RAMAL"
+      ])
+    );
+
+    adicionar(
+      "whatsapps",
+      campoTelefone(registro, [
+        "whatsapp",
+        "WHATSAPP",
+        "WhatsApp"
+      ])
+    );
+
+    adicionar(
+      "emails",
+      campoTelefone(registro, [
+        "email",
+        "EMAIL",
+        "E-MAIL",
+        "E_MAIL"
+      ])
+    );
+
+    adicionar(
+      "enderecos",
+      campoTelefone(registro, [
+        "endereco",
+        "ENDERECO",
+        "Endereço"
+      ])
+    );
+  });
+
+  return resultado;
+}
+
+/* ==========================================================
+ * FORMATAÇÃO
+ * ========================================================== */
+
+function formatarTelefoneConsulta(valor) {
+  const numeros =
+    String(valor || "")
+      .replace(/\D/g, "");
+
+  if (!numeros) return "-";
+
+  const local =
+    numeros.startsWith("55")
+      ? numeros.slice(2)
+      : numeros;
+
+  if (
+    local.length === 11 &&
+    local.startsWith("27")
+  ) {
+    return (
+      "(" +
+      local.slice(0, 2) +
+      ") " +
+      local.slice(2, 7) +
+      "-" +
+      local.slice(7)
+    );
+  }
+
+  if (
+    local.length === 10 &&
+    local.startsWith("27")
+  ) {
+    return (
+      "(" +
+      local.slice(0, 2) +
+      ") " +
+      local.slice(2, 6) +
+      "-" +
+      local.slice(6)
+    );
+  }
+
+  return String(valor || "-");
+}
+
+function formatarWhatsappConsulta(valor) {
+  return contatoPreenchido(valor)
+    ? formatarTelefoneConsulta(valor)
+    : "-";
+}
+
+/* ==========================================================
+ * LINKS
+ * ========================================================== */
+
+function linkWhatsappConsulta(valor) {
+  const numeros =
+    String(valor || "")
+      .replace(/\D/g, "");
+
+  if (!numeros) return "";
+
+  return (
+    "https://wa.me/" +
+    (
+      numeros.startsWith("55")
+        ? numeros
+        : "55" + numeros
+    )
+  );
+}
+
+function linkTelefoneConsulta(valor) {
+  const numeros =
+    String(valor || "")
+      .replace(/\D/g, "");
+
+  if (!numeros) return "";
+
+  const local =
+    numeros.startsWith("55")
+      ? numeros.slice(2)
+      : numeros;
+
+  return "tel:+55" + local;
+}
+
+function linkEmailConsulta(valor) {
+  return (
+    "mailto:" +
+    encodeURIComponent(
+      String(valor || "")
+    )
+  );
+}
+
+/* ==========================================================
+ * BLOCOS DE CONTATO
+ * ========================================================== */
+
+function blocoContato(
+  titulo,
+  valores,
+  formatador,
+  criadorLink,
+  classe
+) {
+  const lista =
+    Array.isArray(valores)
+      ? valores.filter(contatoPreenchido)
+      : [];
+
+  let html =
+    '<div class="contato-bloco">' +
+      '<div class="contato-titulo">' +
+        escaparConsulta(titulo) +
+      '</div>';
+
+  if (!lista.length) {
+    return (
+      html +
+      '<div class="contato-vazio">-</div>' +
+      '</div>'
+    );
+  }
+
+  html +=
+    '<div class="contato-lista">';
+
+  lista.forEach(valor => {
+    const texto =
+      formatador
+        ? formatador(valor)
+        : valor;
+
+    if (
+      criadorLink &&
+      contatoPreenchido(valor)
+    ) {
+      const href =
+        criadorLink(valor);
+
+      html +=
+        '<a class="contato-item-link ' +
+        (classe || "") +
+        '" href="' +
+        escaparConsulta(href) +
+        '"' +
+        (
+          classe === "whatsapp"
+            ? ' target="_blank" rel="noopener noreferrer"'
+            : ""
+        ) +
+        ">" +
+        escaparConsulta(texto) +
+        "</a>";
+    } else {
+      html +=
+        '<div class="contato-item">' +
+          escaparConsulta(texto) +
+        "</div>";
+    }
+  });
+
+  return (
+    html +
+    "</div></div>"
+  );
+}
+
+/* ==========================================================
+ * MAPA NORMAL
+ * ========================================================== */
+
+function renderizarMapaConsulta() {
+  const mapa =
+    document.getElementById(
+      "consulta-mapa"
+    );
+
+  if (!mapa) return;
+
+  mapa.innerHTML =
+    '<div class="mapa-panel">' +
+
+      '<div class="mapa-header">' +
+
+        '<div>' +
+          '<h3>Mapa do Espírito Santo</h3>' +
+          '<p>' +
+            'Selecione uma comarca e um setor na lista para navegar pelos contatos.' +
+          '</p>' +
+        '</div>' +
+
+        '<button ' +
+          'type="button" ' +
+          'class="btn-mapa" ' +
+          'onclick="abrirMapaConsulta()">' +
+          'Abrir mapa' +
+        '</button>' +
+
+      '</div>' +
+
+      '<div class="mapa-area">' +
+        '<img ' +
+          'src="' + URL_MAPA_ES + '" ' +
+          'alt="Mapa das regiões e comarcas do Espírito Santo">' +
+      '</div>' +
+
+    '</div>';
+}
+
+/* ==========================================================
+ * MAPA AMPLIADO
+ * ========================================================== */
+
+function criarMapaOverlay() {
+  let overlay =
+    document.getElementById(
+      "mapa-overlay"
+    );
+
+  if (overlay) {
+    return overlay;
+  }
+
+  overlay =
+    document.createElement("div");
+
+  overlay.id =
+    "mapa-overlay";
+
+  overlay.className =
+    "mapa-overlay";
+
+  overlay.innerHTML =
+    '<div class="mapa-overlay-painel">' +
+
+      '<div class="mapa-overlay-header">' +
+
+        '<h3>Mapa do Espírito Santo</h3>' +
+
+        '<button ' +
+          'type="button" ' +
+          'class="btn btn-secondary" ' +
+          'onclick="fecharMapaConsulta()">' +
+          '← Voltar à consulta' +
+        '</button>' +
+
+      '</div>' +
+
+      '<div class="mapa-overlay-area">' +
+
+        '<img ' +
+          'src="' +
+          URL_MAPA_ES +
+          '" ' +
+          'alt="Mapa das regiões e comarcas do Espírito Santo">' +
+
+      '</div>' +
+
+    '</div>';
+
+  overlay.addEventListener(
+    "click",
+    evento => {
+      if (
+        evento.target === overlay
+      ) {
+        fecharMapaConsulta();
+      }
+    }
+  );
+
+  document.body.appendChild(
+    overlay
+  );
+
+  return overlay;
+}
+
+function abrirMapaConsulta() {
+  const overlay = criarMapaOverlay();
+
+  if (!overlay) {
+    console.error("Não foi possível criar o mapa.");
+    return;
+  }
+
+  overlay.classList.add("ativo");
+  document.body.classList.add("mapa-aberto");
+
+  const btnImprimir =
+    document.getElementById(
+      "btn-imprimir-consulta"
+    );
+
+  if (btnImprimir) {
+    btnImprimir.style.display = "none";
+  }
+}
+
+function fecharMapaConsulta() {
+  const overlay =
+    document.getElementById(
+      "mapa-overlay"
+    );
+
+  if (overlay) {
+    overlay.classList.remove(
+      "ativo"
+    );
+  }
+
+  document.body.classList.remove(
+    "mapa-aberto"
+  );
+
+  const detalhes =
+    document.getElementById(
+      "consulta-detalhes-conteudo"
+    );
+
+  const btnImprimir =
+    document.getElementById(
+      "btn-imprimir-consulta"
+    );
+
+  if (btnImprimir) {
+    const detalhesVisiveis =
+      detalhes &&
+      getComputedStyle(detalhes).display !== "none";
+
+    btnImprimir.style.display =
+      detalhesVisiveis
+        ? "inline-flex"
+        : "none";
+  }
+}
+
+document.addEventListener(
+  "keydown",
+  evento => {
+    if (
+      evento.key === "Escape" &&
+      document.body.classList.contains(
+        "mapa-aberto"
+      )
+    ) {
+      fecharMapaConsulta();
+    }
+  }
+);
+
+/* ==========================================================
+ * DETALHES
+ * ========================================================== */
+
+function renderizarDetalhes(
+  comarca,
+  setor,
+  registros
+) {
+  tituloImpressaoComarca =
+    String(comarca || "").trim();
+
+  tituloImpressaoSetor =
+    String(setor || "").trim();
+
+  const mapa =
+    document.getElementById(
+      "consulta-mapa"
+    );
+
+  const detalhes =
+    document.getElementById(
+      "consulta-detalhes-conteudo"
+    );
+
+  if (!mapa || !detalhes) {
+    console.error(
+      "Área de mapa ou detalhes não encontrada."
+    );
+
+    return;
+  }
+
+  fecharMapaConsulta();
+
+  const contatos =
+    agruparContatosDoSetor(
+      registros
+    );
+
+  const possuiContato =
+    Object.values(contatos)
+      .some(
+        lista => lista.length > 0
+      );
+
+  let html =
+    '<div class="panel detalhe-contatos-panel">';
+
+  if (!possuiContato) {
+    html +=
+      '<p>Nenhum contato disponível.</p>';
+  } else {
+    html +=
+      '<div class="detalhe-contatos-cabecalho">' +
+
+        '<div>' +
+
+          '<h3>' +
+            escaparConsulta(comarca) +
+          '</h3>' +
+
+          '<h4>' +
+            escaparConsulta(setor) +
+          '</h4>' +
+
+        '</div>' +
+
+        '<button ' +
+          'type="button" ' +
+          'class="btn btn-secondary" ' +
+          'onclick="mostrarMapaConsulta()">' +
+          'Voltar ao mapa' +
+        '</button>' +
+
+      '</div>' +
+
+      '<div class="contatos-publicos">' +
+
+        blocoContato(
+          "Telefone",
+          contatos.telefones,
+          formatarTelefoneConsulta,
+          linkTelefoneConsulta,
+          "telefone"
+        ) +
+
+        blocoContato(
+          "Ramal",
+          contatos.ramais
+        ) +
+
+        blocoContato(
+          "WhatsApp",
+          contatos.whatsapps,
+          formatarWhatsappConsulta,
+          linkWhatsappConsulta,
+          "whatsapp"
+        ) +
+
+        blocoContato(
+          "E-mail",
+          contatos.emails,
+          null,
+          linkEmailConsulta,
+          "email"
+        ) +
+
+        blocoContato(
+          "Endereço",
+          contatos.enderecos
+        ) +
+
+      "</div>";
+  }
+
+  detalhes.innerHTML =
+    html + "</div>";
+
+  mapa.style.display =
+    "none";
+
+  detalhes.style.display =
+    "block";
+
+  const btn =
+    document.getElementById(
+      "btn-imprimir-consulta"
+    );
+
+  if (btn) {
+    btn.style.display =
+      "inline-flex";
+  }
+}
+
+function mostrarMapaConsulta() {
+  const mapa =
+    document.getElementById(
+      "consulta-mapa"
+    );
+
+  const detalhes =
+    document.getElementById(
+      "consulta-detalhes-conteudo"
+    );
+
+  if (!mapa || !detalhes) {
+    console.error(
+      "Área de mapa ou detalhes não encontrada."
+    );
+
+    return;
+  }
+
+  fecharMapaConsulta();
+
+  renderizarMapaConsulta();
+
+  mapa.style.display =
+    "block";
+
+  detalhes.style.display =
+    "none";
+
+  detalhes.innerHTML = "";
+
+  const btn =
+    document.getElementById(
+      "btn-imprimir-consulta"
+    );
+
+  if (btn) {
+    btn.style.display =
+      "none";
+  }
+}
+
+/* ==========================================================
+ * FILTRO
+ * ========================================================== */
+
+function filtrarSetoresConsulta() {
+  const campo =
+    document.getElementById(
+      "campo-pesquisa-consulta"
+    );
+
+  const termo =
+    normalizarTexto(
+      campo?.value || ""
+    );
+
+  if (!termo) {
+    renderizarComarcas();
+    return;
+  }
+
+  if (
+    !microrregiaoSelecionada &&
+    !document.querySelector(
+      ".comarca-item"
+    )
+  ) {
+    renderizarComarcas();
+    return;
+  }
+
+  document
+    .querySelectorAll(
+      ".comarca-item"
+    )
+    .forEach(
+      comarcaItem => {
+        const setoresList =
+          comarcaItem.nextElementSibling;
+
+        const nomeComarca =
+          normalizarTexto(
+            comarcaItem.querySelector(
+              ".comarca-nome"
+            )?.textContent || ""
+          );
+
+        const setores =
+          setoresList
+            ? Array.from(
+                setoresList.querySelectorAll(
+                  ".setor-item"
+                )
+              )
+            : [];
+
+        const comarcaEncontrada =
+          nomeComarca.includes(
+            termo
+          );
+
+        let setorEncontrado =
+          false;
+
+        setores.forEach(
+          setor => {
+            const encontrou =
+              normalizarTexto(
+                setor.textContent
+              ).includes(termo);
+
+            setor.style.display =
+              encontrou ? "" : "none";
+
+            if (encontrou) {
+              setorEncontrado = true;
+            }
+          }
+        );
+
+        const mostrar =
+          comarcaEncontrada ||
+          setorEncontrado;
+
+        comarcaItem.style.display =
+          mostrar ? "" : "none";
+
+        if (!setoresList) {
+          return;
+        }
+
+        if (comarcaEncontrada) {
+          setores.forEach(
+            setor => {
+              setor.style.display = "";
+            }
+          );
+        }
+
+        setoresList.classList.toggle(
+          "hidden",
+          !mostrar
+        );
+      }
+    );
+}
+
+/* ==========================================================
+ * IMPRESSÃO / PDF
+ * ========================================================== */
+
+function imprimirConsultaPDF() {
+  const tituloOriginal =
+    document.title;
+
+  const tituloInterface =
+    document
+      .querySelector(
+        ".system-title h1"
+      )
+      ?.textContent
+      .replace(/\s+/g, " ")
+      .trim() ||
+    "SISTEMA INTELIGENTE DE GESTÃO DE TELEFONES DO PJES";
+
+  document.title =
+    tituloInterface;
+
+  window.addEventListener(
+    "afterprint",
+    function restaurarTitulo() {
+      document.title =
+        tituloOriginal;
+
+      window.removeEventListener(
+        "afterprint",
+        restaurarTitulo
+      );
+    },
+    { once: true }
+  );
+
+  window.print();
+}
+</script>

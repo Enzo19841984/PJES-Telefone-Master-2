@@ -1,0 +1,123 @@
+<script>
+/**
+ * ==========================================================
+ * SISTEMA DE TELEFONES TJES
+ * Arquivo: APIJS.html
+ * ==========================================================
+ */
+
+function criarRunnerAPI(sucesso, erro) {
+  let runner = google.script.run.withSuccessHandler(typeof sucesso === "function" ? sucesso : function () {});
+
+  if (typeof erro === "function") {
+    runner = runner.withFailureHandler(erro);
+  } else {
+    runner = runner.withFailureHandler(function (falha) {console.error("Erro na comunicação com o servidor:", falha);});
+  }
+
+  return runner;
+}
+
+const API = {
+  usuarioAtual(sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .obterUsuarioAtual();
+  },
+
+  dashboard(sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .carregarDashboard();
+  },
+
+  listarTelefones(sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .listarTelefones();
+  },
+
+  listarComarcas(sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .listarComarcas();
+  },
+
+  pesquisarTelefones(texto, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .pesquisarTelefones(texto);
+  },
+
+  criarTelefone(dados, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .criarTelefone(dados);
+  },
+
+  atualizarTelefone(id, dados, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .atualizarTelefone(id, dados);
+  },
+
+  excluirTelefone(id, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .excluirTelefone(id);
+  },
+
+  historico(id, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .listarHistorico(id);
+  },
+
+  solicitarAcesso(nome, perfil, justificativa, comarca, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .solicitarAcesso(nome, perfil, justificativa, comarca);
+  },
+
+  enviarFormularioAcesso(dados, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .enviarFormularioAcesso(dados);
+  },
+
+  listarSolicitacoes(sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .listarSolicitacoes();
+  },
+
+  aprovarSolicitacao(id, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .aprovarSolicitacao(id);
+  },
+
+  rejeitarSolicitacao(id, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .rejeitarSolicitacao(id);
+  },
+
+  solicitarPermissaoComarca(comarca, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .solicitarPermissaoComarca(comarca);
+  },
+
+  listarUsuarios(sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .listarUsuarios();
+  },
+
+  atualizarUsuario(email, dados, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .atualizarUsuario(email, dados);
+  },
+
+  criarUsuario(dados, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .criarUsuario(dados);
+  },
+
+  excluirUsuario(email, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .excluirUsuario(email);
+  },
+
+  logout(sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .encerrarSessao();
+  }
+};
+
+</script>

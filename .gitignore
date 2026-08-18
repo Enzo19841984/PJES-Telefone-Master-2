@@ -1,0 +1,12 @@
+# Credenciais locais do Google Clasp
+.clasprc.json
+
+# Dependências Node.js
+node_modules/
+
+# Arquivos temporários
+*.log
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db

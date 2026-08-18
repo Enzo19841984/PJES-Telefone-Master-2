@@ -1,0 +1,111 @@
+<!--
+==========================================================
+SISTEMA DE TELEFONES TJES
+Arquivo: index.html
+==========================================================
+-->
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <title><?= sistemaNome ?></title>
+
+    <?!= include("CSS"); ?>
+  </head>
+
+  <body>
+    <script>
+      var MOSTRAR_MODAL_ACESSO = <?= mostrarModalAcesso ? true : false ?>;
+      var URL_SISTEMA = <?!= JSON.stringify(urlSistema || "") ?>;
+      var SISTEMA_NOME = <?!= JSON.stringify(sistemaNome || "") ?>;
+      var SISTEMA_VERSAO = <?!= JSON.stringify(sistemaVersao || "") ?>;
+      var PERFIL_ADMIN = <?!= JSON.stringify(perfilAdmin || "") ?>;
+      var SESSAO_EMAIL = <?!= JSON.stringify(sessaoEmail || "") ?>;
+      var DOMINIO_INSTITUCIONAL = <?!= JSON.stringify(dominioInstitucional || "") ?>;
+      var URL_ADMIN = <?!= JSON.stringify(urlAdmin || "") ?>;
+      var EH_CONTEXTO_ADMIN = <?= ehContextoAdmin ? true : false ?>;
+
+      window.URL_SISTEMA = URL_SISTEMA;
+      window.SISTEMA_NOME = SISTEMA_NOME;
+      window.SISTEMA_VERSAO = SISTEMA_VERSAO;
+      window.PERFIL_ADMIN = PERFIL_ADMIN;
+      window.SESSAO_EMAIL = SESSAO_EMAIL;
+      window.DOMINIO_INSTITUCIONAL = DOMINIO_INSTITUCIONAL;
+      window.URL_ADMIN = URL_ADMIN;
+      window.EH_CONTEXTO_ADMIN = EH_CONTEXTO_ADMIN;
+    </script>
+
+    <div id="app"><?!= include("Layout"); ?></div>
+
+    <!-- Modal de confirmação de exclusão -->
+    <div id="modal-confirmar-exclusao" class="modal" style="display: none;z-index: 9999;" role="dialog" aria-modal="true"
+      aria-labelledby="titulo-confirmar-exclusao"
+    >
+      <div class="panel"
+        style="
+          width: 100%;
+          max-width: 440px;
+          padding: 24px;
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);"
+      >
+        <div style="text-align: center;">
+          <div
+            style="
+              width: 48px;
+              height: 48px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0 auto 16px;
+              background: #fee2e2;
+              border-radius: 50%;"
+            aria-hidden="true"
+          >
+            <span style="font-size: 24px;">🗑️</span>
+          </div>
+
+          <h3 id="titulo-confirmar-exclusao"
+            style=" margin: 0 0 8px; color: #0f172a; font-size: 18px; font-weight: 700;">Excluir telefone</h3>
+
+          <p id="msg-confirmar-exclusao" style="margin: 0 0 20px; color: #64748b; font-size: 14px; line-height: 1.5;">
+            Tem certeza de que deseja excluir este registro? Esta ação não poderá ser desfeita.
+          </p>
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="fecharModalExclusao()" style="flex: 1;">
+            Cancelar
+          </button>
+
+          <button type="button" id="btn-confirmar-exclusao-submit" class="btn btn-danger" style="flex: 1;">
+            Sim, excluir
+          </button>
+
+        </div>
+      </div>
+    </div>
+
+    <?!= include("Toast"); ?>
+    <?!= include("APIJS"); ?>
+    <?!= include("ToastJS"); ?>
+    <?!= include("ConsultarJS"); ?>
+    <?!= include("RegistroAlteracoesJS"); ?>
+    <?!= include("TableJS"); ?>
+    <?!= include("ModalJS"); ?>
+    <?!= include("SearchJS"); ?>
+    <?!= include("DashboardJS"); ?>
+    <?!= include("SolicitacoesJS"); ?>
+    <?!= include("UsuariosJS"); ?>
+    <?!= include("AppJS"); ?>
+  </body>
+  
+</html>

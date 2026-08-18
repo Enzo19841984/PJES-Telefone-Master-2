@@ -1,0 +1,40 @@
+<!--
+==========================================================
+SISTEMA DE TELEFONES TJES
+Arquivo: Solicitacoes.html
+==========================================================
+-->
+
+<div class="page-header">
+  <div>
+    <h2>Solicitações de Acesso</h2>
+    <p>Gerencie os pedidos de acesso</p>
+  </div>
+
+  <button type="button" class="btn btn-secondary" onclick="carregarSolicitacoes()">
+    🔄 Atualizar
+  </button>
+</div>
+
+<div class="table-panel">
+  <table class="data-table" id="tabela-solicitacoes">
+    <thead>
+      <tr>
+        <th>E-mail</th>
+        <th>Nome</th>
+        <th>Comarca</th>
+        <th>Justificativa</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+
+    <tbody id="corpo-tabela-solicitacoes">
+      <tr>
+        <td colspan="6" style="text-align: center; color: #64748b; padding: 20px;">
+          Nenhuma solicitação encontrada.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

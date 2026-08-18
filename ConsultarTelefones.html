@@ -1,0 +1,110 @@
+<!--
+==========================================================
+SISTEMA DE TELEFONES TJES
+Arquivo: ConsultarTelefones.html
+==========================================================
+-->
+
+<div class="telefones-container">
+
+  <div class="telefones-header">
+
+    <p class="telefones-instrucao">
+      Selecione uma microrregião e depois uma comarca e um setor para ver os contatos.
+    </p>
+
+    <button
+      id="btn-imprimir-consulta"
+      class="btn btn-secondary"
+      onclick="imprimirConsultaPDF()"
+      style="display:none;"
+    >
+      🖨️ Imprimir / PDF
+    </button>
+
+  </div>
+
+  <div class="consulta-layout">
+
+    <!-- =====================================================
+         COLUNA ESQUERDA
+         ===================================================== -->
+
+    <aside class="consulta-esquerda">
+
+      <div class="search-panel consulta-filtros">
+
+        <div class="search-box">
+
+          <span class="search-icon">
+            🔍
+          </span>
+
+          <input
+            id="campo-pesquisa-consulta"
+            type="search"
+            placeholder="Filtrar comarcas ou setores..."
+            oninput="filtrarSetoresConsulta()"
+          >
+
+        </div>
+
+        <div class="consulta-microrregiao">
+
+          <label
+            for="filtro-microrregiao-consulta"
+          >
+            Microrregião
+          </label>
+
+          <select
+            id="filtro-microrregiao-consulta"
+            onchange="selecionarMicrorregiaoConsulta(this.value)"
+          >
+            <option value="">
+              Selecione uma microrregião
+            </option>
+          </select>
+
+        </div>
+
+      </div>
+
+      <div class="consulta-lista-wrapper">
+
+        <div class="consulta-lista-titulo">
+          Selecione uma comarca e um setor para ver os detalhes
+        </div>
+
+        <div
+          id="consulta-lista"
+          class="consulta-lista"
+        >
+          <div class="panel consulta-lista-vazio">
+            Selecione uma microrregião para visualizar as comarcas.
+          </div>
+        </div>
+
+      </div>
+
+    </aside>
+
+    <!-- =====================================================
+         COLUNA DIREITA
+         ===================================================== -->
+
+    <section id="consulta-detalhes" class="consulta-detalhes">
+
+      <!-- MAPA NORMAL -->
+
+      <div id="consulta-mapa"></div>
+
+      <!-- DETALHES DO SETOR -->
+
+      <div id="consulta-detalhes-conteudo" style="display:none;"></div>
+
+    </section>
+
+  </div>
+
+</div>

@@ -1,0 +1,104 @@
+<script>
+/**
+ * ==========================================================
+ * SISTEMA DE TELEFONES TJES
+ * Arquivo: ToastJS.html
+ * ==========================================================
+ */
+
+function mostrarToast(
+  mensagem,
+  tipo
+) {
+  const container =
+    document.getElementById(
+      "toast-container"
+    );
+
+  if (!container) {
+    return;
+  }
+
+  const tiposPermitidos = [
+    "success",
+    "error",
+    "warning",
+    "info"
+  ];
+
+  const tipoSeguro =
+    tiposPermitidos.includes(
+      String(tipo || "")
+    )
+      ? String(tipo)
+      : "info";
+
+  const icones = {
+    success: "✓",
+    error: "✕",
+    warning: "⚠",
+    info: "ℹ"
+  };
+
+  const toast =
+    document.createElement(
+      "div"
+    );
+
+  toast.className =
+    "toast " + tipoSeguro;
+
+  toast.setAttribute(
+    "role",
+    "status"
+  );
+
+  const icone =
+    document.createElement(
+      "span"
+    );
+
+  icone.setAttribute(
+    "aria-hidden",
+    "true"
+  );
+
+  icone.textContent =
+    icones[tipoSeguro];
+
+  const texto =
+    document.createElement(
+      "span"
+    );
+
+  texto.textContent =
+    mensagem === null ||
+    mensagem === undefined
+      ? ""
+      : String(mensagem);
+
+  toast.appendChild(
+    icone
+  );
+
+  toast.appendChild(
+    texto
+  );
+
+  container.appendChild(
+    toast
+  );
+
+  window.setTimeout(
+    function() {
+      if (
+        toast &&
+        toast.parentNode
+      ) {
+        toast.remove();
+      }
+    },
+    4000
+  );
+}
+</script>
