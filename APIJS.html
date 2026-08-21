@@ -90,8 +90,52 @@ const API = {
   },
 
   solicitarPermissaoComarca(comarca, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .solicitarPermissaoComarca(comarca);
+    var authDados = null;
+    try{
+      var raw = localStorage.getItem("pjes_consulta_sessao");
+      if(raw){
+        var sess = JSON.parse(raw);
+        if(sess && sess.email && sess.senha){
+          authDados = { email: sess.email, senha: sess.senha };
+        } else if(sess && sess.email){
+          // fallback: tenta pegar senha do campo se visível
+          var elS = document.getElementById("login-senha");
+          var sVal = elS ? String(elS.value||"").trim() : "";
+          if(sVal) authDados = { email: sess.email, senha: sVal };
+        }
+      }
+    }catch(e){}
+    if(authDados && authDados.email && authDados.senha){
+      criarRunnerAPI(sucesso, erro)
+        .solicitarPermissaoComarca(comarca, authDados);
+    } else {
+      criarRunnerAPI(sucesso, erro)
+        .solicitarPermissaoComarca(comarca);
+    }
+  },
+
+  cancelarSolicitacaoComarca(comarca, sucesso, erro) {
+    var authDados2 = null;
+    try{
+      var raw2 = localStorage.getItem("pjes_consulta_sessao");
+      if(raw2){
+        var sess2 = JSON.parse(raw2);
+        if(sess2 && sess2.email && sess2.senha){
+          authDados2 = { email: sess2.email, senha: sess2.senha };
+        } else if(sess2 && sess2.email){
+          var elS2 = document.getElementById("login-senha");
+          var sVal2 = elS2 ? String(elS2.value||"").trim() : "";
+          if(sVal2) authDados2 = { email: sess2.email, senha: sVal2 };
+        }
+      }
+    }catch(e2){}
+    if(authDados2 && authDados2.email && authDados2.senha){
+      criarRunnerAPI(sucesso, erro)
+        .cancelarSolicitacaoComarca(comarca, authDados2);
+    } else {
+      criarRunnerAPI(sucesso, erro)
+        .cancelarSolicitacaoComarca(comarca);
+    }
   },
 
   listarUsuarios(sucesso, erro) {
@@ -117,6 +161,11 @@ const API = {
   logout(sucesso, erro) {
     criarRunnerAPI(sucesso, erro)
       .encerrarSessao();
+  },
+
+  autenticarConsulta(email, senha, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .autenticarConsulta({ email: email, senha: senha });
   }
 };
 

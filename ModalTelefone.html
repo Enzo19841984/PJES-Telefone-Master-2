@@ -8,7 +8,7 @@ Arquivo: ModalTelefone.html
 <div id="modal-telefone" class="modal hidden">
   <div class="modal-content">
     <div class="modal-header">
-      <h2 id="modal-titulo">Adicionar novo telefone</h2>
+      <h2 id="modal-titulo">Adicionar novo contato</h2>
 
       <button type="button" class="modal-close" onclick="fecharModalTelefone()">×</button>
     </div>
@@ -19,60 +19,61 @@ Arquivo: ModalTelefone.html
       <div class="form-grid">
         <div class="form-group">
           <label for="telefone-microrregiao">Microrregião *</label>
-
-          <input id="telefone-microrregiao" type="text" required>
+          <select id="telefone-microrregiao" required onchange="onModalMicrorregiaoChange()">
+            <option value="">Selecione</option>
+          </select>
+          <input id="telefone-microrregiao-novo" type="text" class="hidden" maxlength="100" placeholder="Nova microrregião" style="margin-top:8px;display:none;">
         </div>
 
         <div class="form-group">
           <label for="telefone-comarca">Comarca *</label>
-
-          <input id="telefone-comarca" type="text"required>
+          <select id="telefone-comarca" required onchange="onModalComarcaChange()">
+            <option value="">Selecione</option>
+          </select>
+          <input id="telefone-comarca-novo" type="text" class="hidden" maxlength="100" placeholder="Nova comarca" style="margin-top:8px;display:none;">
         </div>
 
         <div class="form-group">
           <label for="telefone-setor">Setor *</label>
-
-          <input id="telefone-setor" type="text" required>
+          <select id="telefone-setor" required onchange="onModalSetorChange()">
+            <option value="">Selecione</option>
+          </select>
+          <input id="telefone-setor-novo" type="text" class="hidden" maxlength="100" placeholder="Novo setor" style="margin-top:8px;display:none;">
         </div>
 
         <div class="form-group">
-          <label for="telefone-tipo">Tipo</label>
-
-          <select id="telefone-tipo">
+          <label for="telefone-tipo">Tipo *</label>
+          <select id="telefone-tipo" required onchange="onModalTipoChange()">
             <option value="">Selecione</option>
             <option value="Telefone">Telefone</option>
             <option value="Ramal">Ramal</option>
             <option value="WhatsApp">WhatsApp</option>
+            <option value="E-mail">E-mail</option>
           </select>
         </div>
 
-        <div class="form-group">
-          <label for="telefone-numero">Telefone</label>
-
+        <div class="form-group hidden" id="grupo-telefone-numero">
+          <label for="telefone-numero">Telefone *</label>
           <input id="telefone-numero" type="text" inputmode="tel" placeholder="(27) 0000-0000">
         </div>
 
-        <div class="form-group">
-          <label for="telefone-ramal">Ramal</label>
-
+        <div class="form-group hidden" id="grupo-telefone-ramal">
+          <label for="telefone-ramal">Ramal *</label>
           <input id="telefone-ramal" type="text" inputmode="numeric">
         </div>
 
-        <div class="form-group">
-          <label for="telefone-whatsapp">WhatsApp</label>
-
+        <div class="form-group hidden" id="grupo-telefone-whatsapp">
+          <label for="telefone-whatsapp">WhatsApp *</label>
           <input id="telefone-whatsapp" type="text" inputmode="tel">
         </div>
 
-        <div class="form-group">
-          <label for="telefone-email">E-mail</label>
-
+        <div class="form-group hidden" id="grupo-telefone-email">
+          <label for="telefone-email">E-mail *</label>
           <input id="telefone-email" type="email" maxlength="150" placeholder="setor@tjes.jus.br">
         </div>
 
         <div class="form-group">
           <label for="telefone-endereco">Endereço</label>
-
           <input id="telefone-endereco" type="text" maxlength="300" placeholder="Endereço do setor">
         </div>
 

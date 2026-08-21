@@ -9,6 +9,16 @@
 const URL_MAPA_ES =
   "https://www.educacaonamao.com.br/wp-content/uploads/2019/11/mapa-districao-regioes-espirito-santo-596x1024.jpg";
 
+const URL_GEOJSON_ES =
+  "https://raw.githubusercontent.com/tbrugz/geodata-br/master/geojson/geojs-32-mun.json";
+
+let mapaLeaflet = null;
+let mapaLeafletOverlay = null;
+let camadaGeoJson = null;
+let camadaGeoJsonOverlay = null;
+let geoJsonCache = null;
+let municipioSelecionado = "";
+
 /* ==========================================================
  * INICIALIZAÇÃO
  * ========================================================== */
@@ -294,188 +304,596 @@ function blocoContato(
 }
 
 /* ==========================================================
- * MAPA NORMAL
+ * MAPA PREMIUM — Leaflet interativo (Visitante)
  * ========================================================== */
 
-function renderizarMapaConsulta() {
-  const mapa =
-    document.getElementById(
-      "consulta-mapa"
-    );
-
-  if (!mapa) return;
-
-  mapa.innerHTML =
-    '<div class="mapa-panel">' +
-
-      '<div class="mapa-header">' +
-
-        '<div>' +
-          '<h3>Mapa do Espírito Santo</h3>' +
-          '<p>' +
-            'Selecione uma comarca e um setor na lista para navegar pelos contatos.' +
-          '</p>' +
-        '</div>' +
-
-        '<button ' +
-          'type="button" ' +
-          'class="btn-mapa" ' +
-          'onclick="abrirMapaConsulta()">' +
-          'Abrir mapa' +
-        '</button>' +
-
-      '</div>' +
-
-      '<div class="mapa-area">' +
-        '<img ' +
-          'src="' + URL_MAPA_ES + '" ' +
-          'alt="Mapa das regiões e comarcas do Espírito Santo">' +
-      '</div>' +
-
-    '</div>';
+function obterDensidadeComarca(nomeComarca){
+  var lista = (typeof setoresPorComarca!=="undefined" && setoresPorComarca[nomeComarca]) ? setoresPorComarca[nomeComarca] : [];
+  return Array.isArray(lista) ? lista.length : 0;
 }
 
-/* ==========================================================
- * MAPA AMPLIADO
- * ========================================================== */
-
-function criarMapaOverlay() {
-  let overlay =
-    document.getElementById(
-      "mapa-overlay"
-    );
-
-  if (overlay) {
-    return overlay;
-  }
-
-  overlay =
-    document.createElement("div");
-
-  overlay.id =
-    "mapa-overlay";
-
-  overlay.className =
-    "mapa-overlay";
-
-  overlay.innerHTML =
-    '<div class="mapa-overlay-painel">' +
-
-      '<div class="mapa-overlay-header">' +
-
-        '<h3>Mapa do Espírito Santo</h3>' +
-
-        '<button ' +
-          'type="button" ' +
-          'class="btn btn-secondary" ' +
-          'onclick="fecharMapaConsulta()">' +
-          '← Voltar à consulta' +
-        '</button>' +
-
-      '</div>' +
-
-      '<div class="mapa-overlay-area">' +
-
-        '<img ' +
-          'src="' +
-          URL_MAPA_ES +
-          '" ' +
-          'alt="Mapa das regiões e comarcas do Espírito Santo">' +
-
-      '</div>' +
-
-    '</div>';
-
-  overlay.addEventListener(
-    "click",
-    evento => {
-      if (
-        evento.target === overlay
-      ) {
-        fecharMapaConsulta();
+function municipioParaComarcas(nomeMunicipio){
+  var norm = normalizarTexto(nomeMunicipio||"");
+  if(!norm) return [];
+  if(typeof ordemComarcas==="undefined" || !ordemComarcas || !ordemComarcas.length) return [];
+  var filtrarPorPermissao = false;
+  var permitidasSet = null;
+  try{
+    if(typeof comarcasPermitidasDoUsuario==="function" && typeof usuarioAtual!=="undefined" && usuarioAtual && usuarioAtual.perfil==="GESTOR_CONTEUDO"){
+      var p = comarcasPermitidasDoUsuario();
+      if(p===null){
+        filtrarPorPermissao=false;
+        permitidasSet=null;
+      } else if(Array.isArray(p)){
+        if(p.length===0){
+          filtrarPorPermissao=false;
+          permitidasSet=null;
+        } else {
+          permitidasSet={};
+          for(var pi=0; pi<p.length; pi++){
+            var pn = String(p[pi]||"").trim();
+            if(!pn) continue;
+            permitidasSet[pn]=true;
+            var pnNorm = normalizarTexto(pn);
+            if(pnNorm) permitidasSet[pnNorm]=true;
+            var pnUpper = pn.toUpperCase();
+            if(pnUpper) permitidasSet[pnUpper]=true;
+            try{
+              if(typeof normalizarChaveTabela==="function"){
+                var pnChave = normalizarChaveTabela(pn);
+                if(pnChave) permitidasSet[pnChave]=true;
+              }
+            }catch(e2){}
+          }
+          filtrarPorPermissao=true;
+        }
       }
     }
-  );
+  }catch(e){ filtrarPorPermissao=false; permitidasSet=null; }
+  var lista=[];
+  for(var i=0;i<ordemComarcas.length;i++){
+    var c=ordemComarcas[i];
+    var cn=normalizarTexto(c);
+    var match=(cn===norm || norm.indexOf(cn)!==-1 || cn.indexOf(norm)!==-1);
+    if(!match) continue;
+    if(filtrarPorPermissao && permitidasSet){
+      var cNormLower = cn;
+      var cChave = cNormLower;
+      try{
+        if(typeof normalizarChaveTabela==="function") cChave = normalizarChaveTabela(c);
+        else cChave = cn.toUpperCase().replace(/[^A-Z0-9]/g,"");
+      }catch(e3){ cChave = cn.toUpperCase().replace(/[^A-Z0-9]/g,""); }
+      var permitido = permitidasSet[cChave] || permitidasSet[cNormLower] || permitidasSet[normalizarTexto(c)] || permitidasSet[c];
+      if(!permitido){
+        var ok=false;
+        var cNormTexto = normalizarTexto(c);
+        for(var k in permitidasSet){
+          if(normalizarTexto(k)===cNormTexto){ ok=true; break; }
+          try{
+            if(typeof normalizarChaveTabela==="function" && normalizarChaveTabela(k)===cChave){ ok=true; break; }
+          }catch(e4){}
+        }
+        if(!ok) continue;
+      }
+    }
+    if(lista.indexOf(c)===-1) lista.push(c);
+  }
+  return lista;
+}
 
-  document.body.appendChild(
-    overlay
-  );
+function municipioParaComarca(nomeMunicipio){
+  var lista = (typeof municipioParaComarcas==="function") ? municipioParaComarcas(nomeMunicipio) : [];
+  if(lista && lista.length) return lista[0];
+  return "";
+}
 
+function corPorDensidade(dens){
+  if(!dens || dens===0) return "#e2e8f0";
+  if(dens<=3) return "#bfdbfe";
+  if(dens<=7) return "#60a5fa";
+  return "#1d63b8";
+}
+
+function estiloMunicipio(feature){
+  var nome = String(feature.properties.name||feature.properties.NOME||"").trim();
+  var comarcas = (typeof municipioParaComarcas==="function") ? municipioParaComarcas(nome) : [];
+  var dens = 0;
+  for(var i=0;i<comarcas.length;i++) dens += obterDensidadeComarca(comarcas[i]);
+  var isSel = municipioSelecionado && normalizarTexto(nome)===normalizarTexto(municipioSelecionado);
+  return {
+    fillColor: isSel ? "#00adb5" : corPorDensidade(dens),
+    fillOpacity: dens===0 ? 0.35 : 0.6,
+    color: isSel ? "#0f172a" : "#ffffff",
+    weight: isSel ? 2.2 : 1.2,
+    opacity: 1
+  };
+}
+
+function aoClicarMunicipio(nomeMunicipio, feature, layer){
+  municipioSelecionado = String(nomeMunicipio||"").trim();
+  var comarcas = (typeof municipioParaComarcas==="function") ? municipioParaComarcas(nomeMunicipio) : [];
+  var compNomes = (comarcas && comarcas.length) ? comarcas.slice() : [];
+  if(!compNomes.length){
+    var single = municipioParaComarca(nomeMunicipio);
+    if(single) compNomes=[single];
+    else compNomes=[String(nomeMunicipio||"").trim()];
+  }
+  var temComarcaReal = false;
+  try{
+    if(typeof ordemComarcas!=="undefined"){
+      for(var ci=0; ci<compNomes.length; ci++){
+        if(ordemComarcas.indexOf(compNomes[ci])!==-1){ temComarcaReal=true; break; }
+      }
+    } else { temComarcaReal=true; }
+  }catch(e){ temComarcaReal=true; }
+  var micros=[];
+  var microSet={};
+  try{
+    for(var idx=0; idx<compNomes.length; idx++){
+      var cc = compNomes[idx];
+      var m = "";
+      if(typeof microrregioesPorComarca!=="undefined") m = String(microrregioesPorComarca[cc]||"").trim();
+      if(!m && typeof comarcasPorMicrorregiao!=="undefined"){
+        for(var k in comarcasPorMicrorregiao){
+          if((comarcasPorMicrorregiao[k]||[]).indexOf(cc)!==-1){ m=k; break; }
+        }
+      }
+      if(m && !microSet[m]){ microSet[m]=true; micros.push(m); }
+    }
+  }catch(e){}
+  var microEscolhida="";
+  if(micros.length===1) microEscolhida=micros[0];
+  else if(micros.length>1) microEscolhida=micros[0];
+  else if(!temComarcaReal){
+    try{
+      var fallbackNome = String(nomeMunicipio||"").trim();
+      if(typeof comarcasPorMicrorregiao!=="undefined"){
+        for(var k2 in comarcasPorMicrorregiao){
+          if((comarcasPorMicrorregiao[k2]||[]).indexOf(fallbackNome)!==-1){ microEscolhida=k2; break; }
+        }
+      }
+    }catch(e2){}
+  }
+  if(microEscolhida && typeof selecionarMicrorregiaoConsulta==="function"){
+    var sel = document.getElementById("filtro-microrregiao-consulta");
+    if(sel) sel.value = microEscolhida;
+    selecionarMicrorregiaoConsulta(microEscolhida);
+  }
+  // Ensure all target comarcas are expanded/highlighted after microrregiao render (handles multi-microrregiao by expanding each separately if needed)
+  function aplicarDestaqueComarcas(){
+    try{
+      var normAlvos={};
+      for(var pi=0; pi<compNomes.length; pi++){
+        var ncc = String(compNomes[pi]||"").trim();
+        if(ncc) normAlvos[normalizarTexto(ncc)]=ncc;
+      }
+      var alvos = document.querySelectorAll(".comarca-item");
+      var primeiroAlvo=null;
+      alvos.forEach(function(el){
+        var nomeEl = el.querySelector(".comarca-nome") ? el.querySelector(".comarca-nome").textContent : "";
+        var nNorm = normalizarTexto(nomeEl);
+        var isTarget = !!normAlvos[nNorm];
+        if(!isTarget && temComarcaReal){
+          for(var qa in normAlvos){
+            if(nNorm.indexOf(qa)!==-1 || qa.indexOf(nNorm)!==-1){ isTarget=true; break; }
+          }
+        }
+        el.style.outline = isTarget ? "2px solid #00adb5" : "";
+        el.style.outlineOffset = isTarget ? "2px" : "";
+        if(isTarget){
+          var id = (typeof chaveSegura==="function") ? chaveSegura(nomeEl) : String(nomeEl).replace(/[^a-zA-Z0-9]/g,"_");
+          var sec = document.getElementById("setores-"+id);
+          if(sec && sec.classList.contains("hidden")) sec.classList.remove("hidden");
+          if(!primeiroAlvo) primeiroAlvo=el;
+        }
+      });
+      // If multi-microrregiao, some targets not yet in DOM — try to render remaining micros sequentially
+      if(micros.length>1){
+        for(var mi=1; mi<micros.length; mi++){
+          var mRest = micros[mi];
+          var comarcasDessaMicro = (typeof comarcasPorMicrorregiao!=="undefined" && comarcasPorMicrorregiao[mRest]) ? comarcasPorMicrorregiao[mRest] : [];
+          var inter = [];
+          for(var ii=0; ii<compNomes.length; ii++) if(comarcasDessaMicro.indexOf(compNomes[ii])!==-1) inter.push(compNomes[ii]);
+          if(!inter.length) continue;
+          // temporarily switch micro to render its comarcas, then re-highlight
+          // We inject missing items directly to avoid losing first micro's DOM
+          var containerLista = document.getElementById("consulta-lista");
+          if(containerLista){
+            var existingNorms={};
+            document.querySelectorAll(".comarca-item .comarca-nome").forEach(function(n){ existingNorms[normalizarTexto(n.textContent)]=true; });
+            for(var ri=0; ri<inter.length; ri++){
+              var nomeC = inter[ri];
+              if(existingNorms[normalizarTexto(nomeC)]) continue;
+              var idC = (typeof chaveSegura==="function") ? chaveSegura(nomeC) : String(nomeC).replace(/[^a-zA-Z0-9]/g,"_");
+              if(document.getElementById("setores-"+idC)) continue;
+              // ensure list-group exists
+              var listGroup = containerLista.querySelector(".list-group");
+              if(!listGroup){
+                listGroup=document.createElement("div");
+                listGroup.className="list-group";
+                containerLista.innerHTML="";
+                containerLista.appendChild(listGroup);
+              }
+              var htmlComarca='<div class="comarca-item" data-comarca="'+escaparConsulta(normalizarTexto(nomeC))+'" onclick="toggleComarca(\''+escaparJs(idC)+'\')"><span class="comarca-nome">'+escaparConsulta(nomeC)+'</span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;"><span class="setor-count">'+((typeof setoresPorComarca!=="undefined" && setoresPorComarca[nomeC])? setoresPorComarca[nomeC].length:0)+' setores</span><button type="button" class="btn btn-secondary" style="padding:3px 8px;font-size:11px;white-space:nowrap;" onclick="event.stopPropagation(); imprimirTodosSetoresDaComarca(\''+escaparJs(nomeC)+'\')" title="Imprimir todos os setores desta comarca">\uD83D\uDDA8\uFE0F Imprimir</button></span></div><div class="setores-list" id="setores-'+idC+'">';
+              var setoresC = (typeof setoresPorComarca!=="undefined" && setoresPorComarca[nomeC]) ? setoresPorComarca[nomeC] : [];
+              for(var si=0; si<setoresC.length; si++){
+                var setorC=setoresC[si];
+                var chaveC=nomeC+"||"+setorC;
+                htmlComarca+='<div class="setor-item" onclick="selecionarSetor(event,\''+escaparJs(idC)+'\',\''+escaparJs(setorC)+'\',\''+escaparJs(chaveC)+'\')">'+escaparConsulta(setorC)+'</div>';
+              }
+              htmlComarca+='</div>';
+              listGroup.insertAdjacentHTML('beforeend', htmlComarca);
+            }
+          }
+        }
+        // re-apply outline after injection
+        var alvos2 = document.querySelectorAll(".comarca-item");
+        alvos2.forEach(function(el){
+          var nomeEl2 = el.querySelector(".comarca-nome") ? el.querySelector(".comarca-nome").textContent : "";
+          var nNorm2 = normalizarTexto(nomeEl2);
+          var isTarget2 = !!normAlvos[nNorm2];
+          if(!isTarget2){
+            for(var qa2 in normAlvos){ if(nNorm2.indexOf(qa2)!==-1 || qa2.indexOf(nNorm2)!==-1){ isTarget2=true; break; }}
+          }
+          if(isTarget2){
+            el.style.outline="2px solid #00adb5";
+            el.style.outlineOffset="2px";
+            var id2=(typeof chaveSegura==="function")? chaveSegura(nomeEl2) : String(nomeEl2).replace(/[^a-zA-Z0-9]/g,"_");
+            var sec2=document.getElementById("setores-"+id2);
+            if(sec2 && sec2.classList.contains("hidden")) sec2.classList.remove("hidden");
+          }
+        });
+        // refresh primeiroAlvo
+        if(!primeiroAlvo){
+          document.querySelectorAll(".comarca-item").forEach(function(el){
+            if(primeiroAlvo) return;
+            var n=el.querySelector(".comarca-nome")?el.querySelector(".comarca-nome").textContent:"";
+            if(normAlvos[normalizarTexto(n)]) primeiroAlvo=el;
+          });
+        }
+      }
+      if(primeiroAlvo) primeiroAlvo.scrollIntoView({behavior:"smooth", block:"nearest"});
+    }catch(e2){}
+  }
+  try{ aplicarDestaqueComarcas(); setTimeout(aplicarDestaqueComarcas, 90); }catch(eA){}
+  try{
+    setTimeout(function(){
+      if(typeof camadaGeoJson!=="undefined" && camadaGeoJson && camadaGeoJson.resetStyle) {
+        camadaGeoJson.eachLayer(function(l){ if(l.feature) camadaGeoJson.resetStyle(l); });
+        if(layer) layer.setStyle({fillColor:"#00adb5", fillOpacity:0.82, color:"#0f172a", weight:2.4});
+      }
+    },80);
+  }catch(eB){}
+  try{
+    if(compNomes.length===1){
+      var unicoNome=compNomes[0];
+      var listaSetores = (typeof setoresPorComarca!=="undefined" && setoresPorComarca[unicoNome]) ? setoresPorComarca[unicoNome] : [];
+      if(listaSetores && listaSetores.length===1 && typeof selecionarSetor==="function"){
+        var unico = listaSetores[0];
+        var idSeg = (typeof chaveSegura==="function") ? chaveSegura(unicoNome) : unicoNome;
+        var chave = unicoNome + "||" + unico;
+        selecionarSetor({currentTarget: document.querySelector('#setores-'+idSeg+' .setor-item')}, idSeg, unico, chave);
+      }
+    }
+  }catch(e3){}
+}
+
+function construirTooltipMunicipio(nomeMunicipio){
+  var comarcas = (typeof municipioParaComarcas==="function") ? municipioParaComarcas(nomeMunicipio) : [];
+  if(comarcas && comarcas.length){
+    var densTotal=0;
+    var microSet={};
+    var microLista=[];
+    for(var i=0;i<comarcas.length;i++){
+      densTotal+=obterDensidadeComarca(comarcas[i]);
+      try{
+        var mm = (typeof microrregioesPorComarca!=="undefined") ? String(microrregioesPorComarca[comarcas[i]]||"").trim() : "";
+        if(mm && !microSet[mm]){ microSet[mm]=true; microLista.push(mm); }
+      }catch(e){}
+    }
+    var microStr = microLista.join(", ");
+    var nomesStr = comarcas.length===1 ? comarcas[0] : comarcas.join(", ");
+    var linha2 = nomesStr + " \u00b7 " + densTotal + " setor" + (densTotal===1?"":"es") + (microStr?" \u00b7 "+microStr:"");
+    if(comarcas.length>1) linha2 = comarcas.length + " comarcas: " + nomesStr + " \u00b7 " + densTotal + " setor" + (densTotal===1?"":"es") + (microStr?" \u00b7 "+microStr:"");
+    return '<div class="tooltip-premium">'+ escaparConsulta(nomeMunicipio) + '<small>'+ escaparConsulta(linha2) +'</small></div>';
+  }
+  var comarca = municipioParaComarca(nomeMunicipio);
+  var dens = comarca ? obterDensidadeComarca(comarca) : 0;
+  var micro = "";
+  try{ if(comarca && typeof microrregioesPorComarca!=="undefined") micro = String(microrregioesPorComarca[comarca]||"").trim(); }catch(e){}
+  var linha2 = comarca ? (dens+" setor"+(dens===1?"":"es")+(micro?" \u00b7 "+micro:"")) : (micro||"Munic\u00edpio \u2014 sem comarca direta");
+  return '<div class="tooltip-premium">'+ escaparConsulta(nomeMunicipio) + '<small>'+ escaparConsulta(linha2) +'</small></div>';
+}
+
+function initMapaLeaflet(containerId, isOverlay){
+  var cont = document.getElementById(containerId);
+  if(!cont) return null;
+  if(typeof L==="undefined"){
+    cont.innerHTML = '<div style="padding:24px;text-align:center;color:#64748b;font-size:13px;">Carregando mapa\u2026 <br><small>Leaflet n\u00e3o carregou \u2014 verifique conex\u00e3o.</small></div>';
+    setTimeout(function(){ if(typeof L!=="undefined") initMapaLeaflet(containerId, isOverlay); }, 1200);
+    return null;
+  }
+  var mapa = L.map(containerId, { zoomControl:true, attributionControl:true }).setView([-19.5, -40.3], 8);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(mapa);
+
+  function carregar(){
+    if(geoJsonCache){
+      desenhar(geoJsonCache);
+      return;
+    }
+    fetch(URL_GEOJSON_ES)
+      .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+      .then(function(data){ geoJsonCache = data; desenhar(data); })
+      .catch(function(err){
+        console.error("GeoJSON ES falhou", err);
+        cont.insertAdjacentHTML("beforeend", '<div style="margin-top:10px;padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#991b1b;font-size:12px;">N\u00e3o foi poss\u00edvel carregar o mapa vetorial. <button type="button" class="btn btn-secondary" style="margin-left:8px;padding:4px 8px;font-size:11px;" onclick="initMapaLeaflet(\''+containerId+'\','+(isOverlay?'true':'false')+')">Tentar novamente</button><br><small style="color:#b45309">Exibindo mapa ilustrativo.</small></div>');
+        var fallback = document.createElement("img");
+        fallback.src = URL_MAPA_ES;
+        fallback.alt = "Mapa do Esp\u00edrito Santo";
+        fallback.style.cssText = "width:100%;max-height:360px;object-fit:contain;margin-top:10px;border-radius:10px;border:1px solid #e2e8f0;";
+        cont.appendChild(fallback);
+      });
+  }
+
+  function desenhar(data){
+    var layer = L.geoJSON(data, {
+      style: estiloMunicipio,
+      onEachFeature: function(feature, lyr){
+        var nome = String(feature.properties.name||feature.properties.NOME||"").trim();
+        lyr.bindTooltip(construirTooltipMunicipio(nome), { permanent:false, direction:"auto", className:"tooltip-premium", sticky:true });
+        lyr.on({
+          mouseover: function(e){
+            var t = e.target;
+            if(normalizarTexto(municipioSelecionado)!==normalizarTexto(nome)){
+              t.setStyle({ fillColor:"#00adb5", fillOpacity:0.78, weight:2.2, color:"#0f172a" });
+              t.bringToFront();
+            }
+          },
+          mouseout: function(e){
+            if(normalizarTexto(municipioSelecionado)===normalizarTexto(nome)){
+              e.target.setStyle({fillColor:"#00adb5", fillOpacity:0.85, weight:2.4, color:"#0f172a"});
+            } else {
+              var parent = isOverlay ? camadaGeoJsonOverlay : camadaGeoJson;
+              if(parent) parent.resetStyle(e.target);
+            }
+          },
+          click: function(e){
+            L.DomEvent.stopPropagation(e);
+            aoClicarMunicipio(nome, feature, e.target);
+          }
+        });
+      }
+    }).addTo(mapa);
+    if(isOverlay) camadaGeoJsonOverlay = layer; else camadaGeoJson = layer;
+    try{ mapa.fitBounds(layer.getBounds(), {padding:[14,14]}); }catch(e2){}
+    setTimeout(function(){ try{ mapa.invalidateSize(); if(!isOverlay) { mapa.fitBounds(layer.getBounds(), {padding:[14,14]}); } }catch(e){} }, 220);
+    layer.eachLayer(function(l){
+      l._nomeNorm = normalizarTexto(String(l.feature.properties.name||"").trim());
+    });
+  }
+
+  carregar();
+  if(isOverlay) mapaLeafletOverlay = mapa; else mapaLeaflet = mapa;
+  return mapa;
+}
+
+function resetarMapaLeaflet(){
+  try{
+    if(mapaLeaflet && camadaGeoJson){
+      municipioSelecionado = "";
+      camadaGeoJson.eachLayer(function(l){ camadaGeoJson.resetStyle(l); });
+      mapaLeaflet.fitBounds(camadaGeoJson.getBounds(), {padding:[14,14]});
+      document.querySelectorAll(".comarca-item").forEach(function(el){ el.style.outline=""; });
+    }
+  }catch(e){}
+}
+
+function destacarMapaPorBusca(termoNorm){
+  try{
+    var parent = camadaGeoJson;
+    if(!parent) return;
+    if(!termoNorm){
+      parent.eachLayer(function(l){ parent.resetStyle(l); l.setStyle({opacity:1, fillOpacity: l.feature? estiloMunicipio(l.feature).fillOpacity : 0.5}); });
+      return;
+    }
+    parent.eachLayer(function(l){
+      var nome = l._nomeNorm || normalizarTexto(String(l.feature.properties.name||""));
+      var lista = (typeof municipioParaComarcas==="function") ? municipioParaComarcas(String(l.feature.properties.name||"")) : [];
+      var match = nome.indexOf(termoNorm)!==-1;
+      if(!match && lista && lista.length){
+        for(var i=0;i<lista.length;i++){
+          var cn = normalizarTexto(lista[i]);
+          if(cn.indexOf(termoNorm)!==-1 || termoNorm.indexOf(cn)!==-1){ match=true; break; }
+        }
+      } else if(!match){
+        var comarca = normalizarTexto(municipioParaComarca(String(l.feature.properties.name||"")));
+        match = comarca.indexOf(termoNorm)!==-1;
+      }
+      if(match){
+        l.setStyle({opacity:1, fillOpacity:0.75});
+        l.bringToFront();
+      } else {
+        l.setStyle({opacity:0.45, fillOpacity:0.18});
+      }
+    });
+  }catch(e){}
+}
+
+let mapaPendenteInit = false;
+
+function tentarInicializarMapa(){
+  var view = document.getElementById("consulta-telefones-view");
+  var mapaEl = document.getElementById("consulta-mapa");
+  var leafletCont = document.getElementById("mapa-leaflet");
+  if(!view || view.classList.contains("hidden")) return false;
+  if(!mapaEl || mapaEl.offsetParent===null) return false;
+  // already has leaflet?
+  if(mapaLeaflet && leafletCont && leafletCont.offsetHeight>40) {
+    try{ mapaLeaflet.invalidateSize(); if(camadaGeoJson) mapaLeaflet.fitBounds(camadaGeoJson.getBounds(), {padding:[14,14]}); }catch(e){}
+    return true;
+  }
+  if(leafletCont && leafletCont.offsetHeight>40){
+    try{ initMapaLeaflet("mapa-leaflet", false); mapaPendenteInit=false; return true; }catch(e){ return false; }
+  }
+  // container not yet sized -> retry
+  mapaPendenteInit = true;
+  return false;
+}
+
+// observer: when consulta view becomes visible, init
+try{
+  if(typeof MutationObserver!=="undefined"){
+    var obs = new MutationObserver(function(muts){
+      muts.forEach(function(m){
+        if(m.target.id==="consulta-telefones-view" && !m.target.classList.contains("hidden")){
+          setTimeout(tentarInicializarMapa, 80);
+          setTimeout(tentarInicializarMapa, 400);
+        }
+      });
+    });
+    // attach after DOM ready
+    setTimeout(function(){
+      var v=document.getElementById("consulta-telefones-view");
+      if(v) obs.observe(v, {attributes:true, attributeFilter:["class"]});
+    }, 900);
+    // also hook mostrarView if exists
+    (function(){
+      var orig = window.mostrarView;
+      if(typeof orig==="function"){
+        window.mostrarView = function(id){
+          var r = orig.apply(this, arguments);
+          if(id==="consulta-telefones-view") setTimeout(tentarInicializarMapa, 120);
+          return r;
+        };
+      }
+    })();
+  }
+}catch(eObs){}
+
+
+
+// Keep leaflet covering whole container on resize
+try{
+  var _mapaResizeObs = new ResizeObserver(function(){ try{ if(mapaLeaflet) mapaLeaflet.invalidateSize(); }catch(e){} });
+  setTimeout(function(){
+    var c=document.getElementById("consulta-mapa");
+    if(c) _mapaResizeObs.observe(c);
+  }, 1500);
+}catch(eRO){}
+
+function renderizarMapaConsulta(){
+  var mapaEl = document.getElementById("consulta-mapa");
+  if(!mapaEl) return;
+  // if view hidden, defer — will be retried by observer / mostrarView
+  var view = document.getElementById("consulta-telefones-view");
+  if(view && view.classList.contains("hidden")){
+    mapaPendenteInit = true;
+    // ainda monta shell para quando abrir
+    mapaEl.innerHTML =
+    '<div class="mapa-panel mapa-premium">' +
+      '<div class="mapa-header">' +
+        '<div>' +
+          '<h3>Mapa Interativo</h3>' +
+          '<p>Clique em um munic\u00edpio para filtrar comarcas e setores. Passe o mouse para ver detalhes.</p>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+          '<button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:12px;" onclick="resetarMapaLeaflet()">\u21ba Redefinir</button>' +
+          '<button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:12px;" onclick="abrirMapaConsulta()">\u26f6 Ampliar</button>' +
+        '</div>' +
+      '</div>' +
+      '<div id="mapa-leaflet"></div>' +
+      '<div class="mapa-legenda">' +
+        '<span class="mapa-legenda-item"><span class="mapa-legenda-cor" style="background:#e2e8f0"></span> Sem setor</span>' +
+        '<span class="mapa-legenda-item"><span class="mapa-legenda-cor" style="background:#bfdbfe"></span> 1\u20133 setores</span>' +
+        '<span class="mapa-legenda-item"><span class="mapa-legenda-cor" style="background:#60a5fa"></span> 4\u20137 setores</span>' +
+        '<span class="mapa-legenda-item"><span class="mapa-legenda-cor" style="background:#1d63b8"></span> 8+ setores</span>' +
+        '<span class="mapa-legenda-item"><span class="mapa-legenda-cor" style="background:#00adb5"></span> Selecionado / hover</span>' +
+      '</div>' +
+    '</div>';
+    return;
+  }
+  mapaEl.innerHTML =
+    '<div class="mapa-panel mapa-premium">' +
+      '<div class="mapa-header">' +
+        '<div>' +
+          '<h3>Mapa Interativo</h3>' +
+          '<p>Clique em um munic\u00edpio para filtrar comarcas e setores. Passe o mouse para ver detalhes.</p>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+          '<button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:12px;" onclick="resetarMapaLeaflet()">\u21ba Redefinir</button>' +
+          '<button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:12px;" onclick="abrirMapaConsulta()">\u26f6 Ampliar</button>' +
+        '</div>' +
+      '</div>' +
+      '<div id="mapa-leaflet"></div>' +
+      '<div class="mapa-legenda">' +
+        '<span class="mapa-legenda-item"><span class="mapa-legenda-cor" style="background:#e2e8f0"></span> Sem setor</span>' +
+        '<span class="mapa-legenda-item"><span class="mapa-legenda-cor" style="background:#bfdbfe"></span> 1\u20133 setores</span>' +
+        '<span class="mapa-legenda-item"><span class="mapa-legenda-cor" style="background:#60a5fa"></span> 4\u20137 setores</span>' +
+        '<span class="mapa-legenda-item"><span class="mapa-legenda-cor" style="background:#1d63b8"></span> 8+ setores</span>' +
+        '<span class="mapa-legenda-item"><span class="mapa-legenda-cor" style="background:#00adb5"></span> Selecionado / hover</span>' +
+      '</div>' +
+    '</div>';
+  setTimeout(function(){ initMapaLeaflet("mapa-leaflet", false); }, 80);
+}
+
+function criarMapaOverlay(){
+  var overlay = document.getElementById("mapa-overlay");
+  if(overlay) return overlay;
+  overlay = document.createElement("div");
+  overlay.id = "mapa-overlay";
+  overlay.className = "mapa-overlay";
+  overlay.innerHTML =
+    '<div class="mapa-overlay-painel">' +
+      '<div class="mapa-overlay-header">' +
+        '<h3>Mapa Interativo \u2014 Esp\u00edrito Santo</h3>' +
+        '<button type="button" class="btn btn-secondary" onclick="fecharMapaConsulta()">\u2190 Voltar \u00e0 consulta</button>' +
+      '</div>' +
+      '<div class="mapa-overlay-area"><div id="mapa-leaflet-overlay"></div></div>' +
+    '</div>';
+  overlay.addEventListener("click", function(evento){
+    if(evento.target===overlay) fecharMapaConsulta();
+  });
+  document.body.appendChild(overlay);
   return overlay;
 }
 
-function abrirMapaConsulta() {
-  const overlay = criarMapaOverlay();
-
-  if (!overlay) {
-    console.error("Não foi possível criar o mapa.");
-    return;
-  }
-
+function abrirMapaConsulta(){
+  var overlay = criarMapaOverlay();
+  if(!overlay){ console.error("N\u00e3o foi poss\u00edvel criar o mapa."); return; }
   overlay.classList.add("ativo");
   document.body.classList.add("mapa-aberto");
-
-  const btnImprimir =
-    document.getElementById(
-      "btn-imprimir-consulta"
-    );
-
-  if (btnImprimir) {
-    btnImprimir.style.display = "none";
-  }
-}
-
-function fecharMapaConsulta() {
-  const overlay =
-    document.getElementById(
-      "mapa-overlay"
-    );
-
-  if (overlay) {
-    overlay.classList.remove(
-      "ativo"
-    );
-  }
-
-  document.body.classList.remove(
-    "mapa-aberto"
-  );
-
-  const detalhes =
-    document.getElementById(
-      "consulta-detalhes-conteudo"
-    );
-
-  const btnImprimir =
-    document.getElementById(
-      "btn-imprimir-consulta"
-    );
-
-  if (btnImprimir) {
-    const detalhesVisiveis =
-      detalhes &&
-      getComputedStyle(detalhes).display !== "none";
-
-    btnImprimir.style.display =
-      detalhesVisiveis
-        ? "inline-flex"
-        : "none";
-  }
-}
-
-document.addEventListener(
-  "keydown",
-  evento => {
-    if (
-      evento.key === "Escape" &&
-      document.body.classList.contains(
-        "mapa-aberto"
-      )
-    ) {
-      fecharMapaConsulta();
+  var btnImp = document.getElementById("btn-imprimir-consulta-todos");
+  if(btnImp) btnImp.style.display="none";
+  var btnStub = document.getElementById("btn-imprimir-consulta");
+  if(btnStub) btnStub.style.display="none";
+  setTimeout(function(){
+    if(!mapaLeafletOverlay){
+      initMapaLeaflet("mapa-leaflet-overlay", true);
+    } else {
+      try{ mapaLeafletOverlay.invalidateSize(); if(camadaGeoJsonOverlay) mapaLeafletOverlay.fitBounds(camadaGeoJsonOverlay.getBounds(), {padding:[14,14]}); }catch(e){}
     }
+  }, 120);
+}
+
+function fecharMapaConsulta(){
+  var overlay = document.getElementById("mapa-overlay");
+  if(overlay) overlay.classList.remove("ativo");
+  document.body.classList.remove("mapa-aberto");
+  var detalhes = document.getElementById("consulta-detalhes-conteudo");
+  var btnImp = document.getElementById("btn-imprimir-consulta-todos");
+  if(btnImp){
+    var isConsulta = !!(document.getElementById("consulta-telefones-view") && !document.getElementById("consulta-telefones-view").classList.contains("hidden"));
+    btnImp.style.display = isConsulta ? "" : "none";
   }
-);
+  var btnStub = document.getElementById("btn-imprimir-consulta");
+  if(btnStub) btnStub.style.display="none";
+  setTimeout(function(){ try{ if(mapaLeaflet) mapaLeaflet.invalidateSize(); }catch(e){} }, 120);
+}
+
+document.addEventListener("keydown", function(evento){
+  if(evento.key==="Escape" && document.body.classList.contains("mapa-aberto")) fecharMapaConsulta();
+});
+
 
 /* ==========================================================
  * DETALHES
@@ -530,6 +948,35 @@ function renderizarDetalhes(
     html +=
       '<p>Nenhum contato disponível.</p>';
   } else {
+    // Gestor de Conteúdo: ações limitadas às comarcas permitidas (editar/excluir no detalhe)
+    var ehGestorConteudoDetalhe = false;
+    var podeEditarDetalhe = false;
+    try{
+      ehGestorConteudoDetalhe = typeof usuarioAtual!=="undefined" && usuarioAtual && usuarioAtual.logado===true && String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_CONTEUDO";
+      if(ehGestorConteudoDetalhe && typeof podeEditarComarca==="function") podeEditarDetalhe = podeEditarComarca(comarca);
+      else if(ehGestorConteudoDetalhe && typeof comarcasPermitidasDoUsuario==="function"){
+        var allowD = comarcasPermitidasDoUsuario();
+        if(allowD===null) podeEditarDetalhe = true;
+        else if(Array.isArray(allowD)){
+          var ckD = String(comarca||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]/g,"").toUpperCase();
+          podeEditarDetalhe = allowD.indexOf(ckD)!==-1;
+        }
+      }
+    }catch(e){ podeEditarDetalhe=false; }
+
+    // Botões de ação por registro dentro deste setor (pega primeiro ID)
+    var acoesRegistroHtml = "";
+    if(ehGestorConteudoDetalhe && podeEditarDetalhe && Array.isArray(registros) && registros.length){
+      // escolhe primeiro registro como representante para editar/excluir (editar abre modal com ID)
+      var primeiroId = "";
+      try{ primeiroId = String((registros[0].ID||registros[0].id||"")).trim(); }catch(e){}
+      if(primeiroId){
+        acoesRegistroHtml =
+          '<button type="button" class="btn btn-primary" style="padding:6px 10px;font-size:12px;" onclick="abrirEditarTelefone(\'' + escaparJs(primeiroId) + '\')">\u270F\uFE0F Editar</button>' +
+          '<button type="button" class="btn btn-danger" style="padding:6px 10px;font-size:12px;" onclick="abrirExcluir(\'' + escaparJs(primeiroId) + '\')">\uD83D\uDDD1\uFE0F Excluir</button>';
+      }
+    }
+
     html +=
       '<div class="detalhe-contatos-cabecalho">' +
 
@@ -545,12 +992,11 @@ function renderizarDetalhes(
 
         '</div>' +
 
-        '<button ' +
-          'type="button" ' +
-          'class="btn btn-secondary" ' +
-          'onclick="mostrarMapaConsulta()">' +
-          'Voltar ao mapa' +
-        '</button>' +
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
+          '<button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:12px;" onclick="imprimirDetalheSetor()" title="Imprimir este setor em PDF">\uD83D\uDDA8\uFE0F Imprimir/PDF</button>' +
+          acoesRegistroHtml +
+          '<button type="button" class="btn btn-secondary" onclick="mostrarMapaConsulta()">Voltar ao mapa</button>' +
+        '</div>' +
 
       '</div>' +
 
@@ -602,15 +1048,13 @@ function renderizarDetalhes(
   detalhes.style.display =
     "block";
 
-  const btn =
-    document.getElementById(
-      "btn-imprimir-consulta"
-    );
-
-  if (btn) {
-    btn.style.display =
-      "inline-flex";
+  var btnTodos = document.getElementById("btn-imprimir-consulta-todos");
+  if (btnTodos) {
+    var isConsulta = !!(document.getElementById("consulta-telefones-view") && !document.getElementById("consulta-telefones-view").classList.contains("hidden"));
+    btnTodos.style.display = isConsulta ? "" : "none";
   }
+  var btnStub = document.getElementById("btn-imprimir-consulta");
+  if(btnStub) btnStub.style.display="none";
 }
 
 function mostrarMapaConsulta() {
@@ -644,15 +1088,13 @@ function mostrarMapaConsulta() {
 
   detalhes.innerHTML = "";
 
-  const btn =
-    document.getElementById(
-      "btn-imprimir-consulta"
-    );
-
-  if (btn) {
-    btn.style.display =
-      "none";
+  var btnTodosM = document.getElementById("btn-imprimir-consulta-todos");
+  if (btnTodosM) {
+    var isConsultaM = !!(document.getElementById("consulta-telefones-view") && !document.getElementById("consulta-telefones-view").classList.contains("hidden"));
+    btnTodosM.style.display = isConsultaM ? "" : "none";
   }
+  var btnStubM = document.getElementById("btn-imprimir-consulta");
+  if(btnStubM) btnStubM.style.display="none";
 }
 
 /* ==========================================================
@@ -675,14 +1117,27 @@ function filtrarSetoresConsulta() {
     return;
   }
 
-  if (
-    !microrregiaoSelecionada &&
-    !document.querySelector(
-      ".comarca-item"
-    )
-  ) {
+  // Termo ativo: garante lista global em ordem da planilha (ordemComarcas)
+  // Corrige fragilidade "no microrregião + termo" e "microrregião + termo": busca deve mostrar
+  // TODAS as comarcas que casam em sheet order, ignorando microrregião. Evita loop verificando DOM.
+  if (!document.querySelector(".comarca-item")) {
     renderizarComarcas();
     return;
+  }
+
+  if (termo && microrregiaoSelecionada) {
+    try {
+      if (typeof ordemComarcas !== "undefined" && ordemComarcas.length) {
+        const totalDOM = document.querySelectorAll(".comarca-item").length;
+        const primeiroGlobal = normalizarTexto(ordemComarcas[0] || "");
+        const primeiroDOM = normalizarTexto(document.querySelector(".comarca-item .comarca-nome")?.textContent || "");
+        const precisaGlobal = totalDOM !== ordemComarcas.length || (primeiroGlobal && primeiroDOM !== primeiroGlobal);
+        if (precisaGlobal) {
+          renderizarComarcas();
+          return;
+        }
+      }
+    } catch (e) {}
   }
 
   document
@@ -745,24 +1200,36 @@ function filtrarSetoresConsulta() {
           return;
         }
 
-        if (comarcaEncontrada) {
-          setores.forEach(
-            setor => {
-              setor.style.display = "";
-            }
-          );
+        if (!mostrar) {
+          setoresList.classList.add("hidden");
+          setoresList.style.display = "none";
+          setores.forEach(function(s){ s.style.display = "none"; });
+        } else if (comarcaEncontrada) {
+          // Pesquisa casou no nome da comarca → mostra TODOS os setores dela (ordem da planilha)
+          setores.forEach(function(s){ s.style.display = ""; });
+          setoresList.classList.remove("hidden");
+          setoresList.style.display = "";
+        } else {
+          // Pesquisa casou só em setor → mostra apenas setores filtrados
+          // (já filtrados acima via setorEncontrado)
+          setoresList.classList.remove("hidden");
+          setoresList.style.display = "";
         }
-
-        setoresList.classList.toggle(
-          "hidden",
-          !mostrar
-        );
       }
     );
+  try{ destacarMapaPorBusca(normalizarTexto(campo?.value||"")); }catch(e){}
+
 }
 
 /* ==========================================================
- * IMPRESSÃO / PDF
+ * IMPRESSÃO / PDF — Consulta (detalhe do setor)
+ * ========================================================== */
+function imprimirDetalheSetor(){
+  return imprimirConsultaPDF();
+}
+
+/* ==========================================================
+ * IMPRESSÃO / PDF (detalhe)
  * ========================================================== */
 
 function imprimirConsultaPDF() {

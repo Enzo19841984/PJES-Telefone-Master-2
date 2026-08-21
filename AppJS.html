@@ -16,6 +16,26 @@ let usuarioAtual = {
 
 document.addEventListener("DOMContentLoaded", iniciarSistema);
 
+function restaurarSessaoConsulta(){
+  try{
+    var raw = localStorage.getItem("pjes_consulta_sessao");
+    if(!raw) return false;
+    var sess = JSON.parse(raw);
+    if(!sess || !sess.email || !sess.perfil) return false;
+    // expira em 30 dias
+    var ts = Number(sess.ts||0);
+    if(ts && (Date.now() - ts) > 30*24*60*60*1000){ localStorage.removeItem("pjes_consulta_sessao"); return false; }
+    // se já logado via Google gestor, não sobrescreve
+    if(usuarioAtual && usuarioAtual.logado && (usuarioAtual.perfil==="GESTOR_SISTEMA"||usuarioAtual.perfil==="GESTOR_CONTEUDO")) return true;
+    usuarioAtual = { nome: sess.nome||sess.email.split("@")[0], email: sess.email, perfil: sess.perfil || "USUARIO_CONSULTA", logado: true, ativo: true, comarcas: Array.isArray(sess.comarcas)?sess.comarcas:[], viaConsulta: true };
+    return true;
+  }catch(e){ return false; }
+}
+
+function encerrarSessaoConsulta(){
+  try{ localStorage.removeItem("pjes_consulta_sessao"); }catch(e){}
+}
+
 function usuarioVisitante() {
   return {
     nome: "Visitante",
@@ -40,6 +60,7 @@ function mensagemErroFrontend(erro, fallback) {
  * o dashboard e a consulta.
  */
 function iniciarSistema() {
+  try{ restaurarSessaoConsulta(); }catch(eRestaura){}
   /*
    * A sessão administrativa chega pronta do servidor:
    * com a versão única, o doGet já identificou a conta Google
@@ -337,7 +358,7 @@ function atualizarInterfaceUsuario() {
     );
 
   if (btnAcesso && textoAcesso) {
-    if (logado && perfil !== "USUARIO_CONSULTA") {
+    if (logado) {
       configurarBotaoAcesso(
         btnAcesso,
         textoAcesso,
@@ -373,12 +394,12 @@ function atualizarInterfaceUsuario() {
         textoAcesso,
         ehInstitucional
           ? {
-              texto: "Solicitar Acesso",
-              fundo: "#fef3c7",
-              borda: "#f59e0b",
-              cor: "#92400e",
+              texto: "Login",
+              fundo: "#dbeafe",
+              borda: "#93c5fd",
+              cor: "#1e40af",
               acao: function() {
-                mostrarView("formulario-acesso-view");
+                mostrarView("login-view");
               }
             }
           : {
@@ -396,12 +417,12 @@ function atualizarInterfaceUsuario() {
         btnAcesso,
         textoAcesso,
         {
-          texto: "Solicitar Acesso",
-          fundo: "#fef3c7",
-          borda: "#f59e0b",
-          cor: "#92400e",
+          texto: "Login",
+          fundo: "#dbeafe",
+          borda: "#93c5fd",
+          cor: "#1e40af",
           acao: function() {
-            mostrarView("formulario-acesso-view");
+            mostrarView("login-view");
           }
         }
       );
@@ -473,11 +494,8 @@ function atualizarInterfaceUsuario() {
     );
 
   if (menuAlteracoes) {
-    // Registro de Alterações: somente para admins (Gestor Sistema / Conteúdo)
-    menuAlteracoes.classList.toggle(
-      "hidden",
-      ehVisitante
-    );
+    // Registro de Alterações: visível para todos (inclui Usuário de Consulta)
+    menuAlteracoes.classList.remove("hidden");
   }
 
   const menuUsuarios =
@@ -490,6 +508,18 @@ function atualizarInterfaceUsuario() {
       "hidden",
       !ehGestorSistema
     );
+  }
+
+  const menuLogin = document.getElementById("menu-login");
+  if (menuLogin) {
+    // Removido da sidebar para Usuário de Consulta (duplicado com botão azul inferior) — sempre oculto para visitante
+    menuLogin.classList.add("hidden");
+  }
+
+  const menuFormularioLogin = document.getElementById("menu-formulario");
+  if (menuFormularioLogin) {
+    // Formulário visível sempre (para pedir consulta ou gestor), exceto Gestor Sistema
+    menuFormularioLogin.classList.toggle("hidden", ehGestorSistema);
   }
 
   const btnNovo =
@@ -530,28 +560,50 @@ function atualizarInterfaceUsuario() {
     }
   } catch (e) {}
 
-  // Botões de impressão — Telefones (admin)
+  // --- Botões de impressão por perfil e view ---
   try {
-    var btnTodos = document.getElementById("btn-imprimir-todos-numeros");
-    var btnPagina = document.getElementById("btn-imprimir-esta-pagina");
-    if (btnTodos) {
-      // Imprimir todos: Gestor Sistema + Gestor Conteúdo (admin), Visitante não vê (usa consulta)
-      btnTodos.style.display = (logado && perfil !== "USUARIO_CONSULTA") ? "" : "none";
-    }
-    if (btnPagina) {
-      // Imprimir esta página: só Gestor de Conteúdo (filtro local)
-      btnPagina.style.display = (logado && perfil === "GESTOR_CONTEUDO") ? "" : "none";
-    }
-  } catch(ePrintAdmin){}
+    var isDashboard = (function(){ var el=document.getElementById("dashboard-view"); return !!(el && !el.classList.contains("hidden")); })();
+    var isTelefones = (function(){ var el=document.getElementById("telefones-view"); return !!(el && !el.classList.contains("hidden")); })();
+    var isConsulta = (function(){ var el=document.getElementById("consulta-telefones-view"); return !!(el && !el.classList.contains("hidden")); })();
+    var isUsuarios = (function(){ var el=document.getElementById("usuarios-view"); return !!(el && !el.classList.contains("hidden")); })();
+    var ehGestor = logado && (perfil === "GESTOR_SISTEMA" || perfil === "GESTOR_CONTEUDO");
 
-  // Botão topo Visitante — Imprimir todas as comarcas
-  try {
-    var btnComarcas = document.getElementById("btn-imprimir-todas-comarcas");
-    if (btnComarcas) {
-      // só Visitante (USUARIO_CONSULTA / não logado) — topo geral
-      btnComarcas.style.display = ehVisitante ? "" : "none";
+    var btnDashboard = document.getElementById("btn-imprimir-dashboard");
+    if (btnDashboard) {
+      btnDashboard.style.display = isDashboard ? "" : "none";
     }
-  } catch(ePrintVisit){}
+    var btnTelefones = document.getElementById("btn-imprimir-telefones");
+    if (btnTelefones) {
+      // Apenas Gestor do Sistema vê o Imprimir da tabela; Gestor Conteúdo usa o botão da consulta
+      btnTelefones.style.display = (ehGestorSistema && isTelefones) ? "" : "none";
+    }
+    var btnNovoTelefone = document.getElementById("btn-novo-telefone");
+    if (btnNovoTelefone) {
+      // Gestor Sistema sempre; Gestor Conteúdo agora usa o botão da consulta (mapa)
+      btnNovoTelefone.style.display = (ehGestorSistema && isTelefones) ? "" : "none";
+      btnNovoTelefone.disabled = !ehGestorSistema;
+    }
+    var btnConsultaTodos = document.getElementById("btn-imprimir-consulta-todos");
+    if (btnConsultaTodos) {
+      // Visitante e Gestor de Conteúdo (mapa) podem imprimir todos os contatos; Gestor Sistema usa Imprimir/PDF da tabela
+      var podeImprimirConsulta = isConsulta && (ehVisitante || ehGestorConteudo);
+      btnConsultaTodos.style.display = podeImprimirConsulta ? "" : "none";
+    }
+    // Novo Contato no mapa para Gestor de Conteúdo
+    var btnNovoNoConsulta = document.getElementById("btn-novo-telefone-consulta");
+    if (btnNovoNoConsulta) {
+      btnNovoNoConsulta.style.display = (ehGestorConteudo && isConsulta) ? "" : "none";
+    }
+    var btnUsuarios = document.getElementById("btn-imprimir-usuarios");
+    if (btnUsuarios) {
+      btnUsuarios.style.display = (ehGestorSistema && isUsuarios) ? "" : "none";
+    }
+    // Compatibilidade: esconde stubs legados permanentemente
+    ["btn-imprimir-todas-comarcas","btn-imprimir-todos-numeros","btn-imprimir-esta-pagina","btn-imprimir-consulta"].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el){ el.style.display="none"; el.classList.add("hidden"); el.setAttribute("aria-hidden","true"); }
+    });
+  } catch(ePrint){}
 
   if (
     typeof listaTelefones !==
@@ -663,11 +715,16 @@ function fazerLogin() {
  * - Visitante -> aba de Consulta (mapa + lista somente leitura)
  */
 function navegarParaTelefones() {
+  if (typeof usuarioAtual !== "undefined" && usuarioAtual && usuarioAtual.logado === true && usuarioAtual.perfil === "GESTOR_CONTEUDO") {
+    // Gestor de Conteúdo usa o mesmo layout de Consulta (mapa + busca) mas com ações administrativas
+    mostrarView("consulta-telefones-view");
+    return;
+  }
   var ehGestor =
     typeof usuarioAtual !== "undefined" &&
     usuarioAtual &&
     usuarioAtual.logado === true &&
-    (usuarioAtual.perfil === "GESTOR_SISTEMA" || usuarioAtual.perfil === "GESTOR_CONTEUDO");
+    usuarioAtual.perfil === "GESTOR_SISTEMA";
 
   mostrarView(ehGestor ? "telefones-view" : "consulta-telefones-view");
 }
@@ -692,6 +749,7 @@ function tratarCliqueAcesso() {
 
   function finalizarSaidaLocal() {
     usuarioAtual = usuarioVisitante();
+    try{ encerrarSessaoConsulta(); }catch(eSess){}
 
     try {
       window.PERFIL_ADMIN = "";
@@ -744,15 +802,21 @@ function mostrarView(viewId) {
     var p = (typeof usuarioAtual !== "undefined" && usuarioAtual) ? String(usuarioAtual.perfil || "USUARIO_CONSULTA") : "USUARIO_CONSULTA";
     var logado = !!(typeof usuarioAtual !== "undefined" && usuarioAtual && usuarioAtual.logado === true);
     var ehGestorSistema = logado && p === "GESTOR_SISTEMA";
+    var ehVisitante = !logado || p === "USUARIO_CONSULTA";
 
     if (viewId === "formulario-acesso-view" && ehGestorSistema) {
       mostrarToast("Gestores não precisam solicitar acesso.", "info");
       viewId = "dashboard-view";
     }
 
-    if (viewId === "registro-alteracoes-view" && ehVisitante) {
-      mostrarToast("Registro de Alterações disponível apenas para Gestores.", "warning");
-      viewId = "consulta-telefones-view";
+    // Registro de Alterações: liberado para todos (inclui Usuário de Consulta) — sem bloqueio
+
+    // login/senha-gerada são públicas — quando já logado, redireciona ao dashboard
+    if ((viewId === "login-view" || viewId === "senha-gerada-view") && logado) {
+      // Consulta já logado não precisa ver login novamente — vai ao dashboard
+      if (p === "USUARIO_CONSULTA") {
+        viewId = "dashboard-view";
+      }
     }
 
     // manual-view é livre para todos os perfis — sem bloqueio.
@@ -805,6 +869,8 @@ function mostrarView(viewId) {
         );
       }
     });
+
+  try{ if(typeof atualizarInterfaceUsuario==="function") atualizarInterfaceUsuario(); }catch(eUpd){}
 
   if (
     viewId ===

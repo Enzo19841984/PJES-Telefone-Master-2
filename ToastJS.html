@@ -6,14 +6,9 @@
  * ==========================================================
  */
 
-function mostrarToast(
-  mensagem,
-  tipo
-) {
-  const container =
-    document.getElementById(
-      "toast-container"
-    );
+function mostrarToast(mensagem, tipo) {
+
+  const container = document.getElementById("toast-container");
 
   if (!container) {
     return;
@@ -26,12 +21,7 @@ function mostrarToast(
     "info"
   ];
 
-  const tipoSeguro =
-    tiposPermitidos.includes(
-      String(tipo || "")
-    )
-      ? String(tipo)
-      : "info";
+  const tipoSeguro = tiposPermitidos.includes(String(tipo || "")) ? String(tipo) : "info";
 
   const icones = {
     success: "✓",
@@ -40,65 +30,36 @@ function mostrarToast(
     info: "ℹ"
   };
 
-  const toast =
-    document.createElement(
-      "div"
-    );
+  const toast = document.createElement("div");
 
-  toast.className =
-    "toast " + tipoSeguro;
+  toast.className = "toast " + tipoSeguro;
 
-  toast.setAttribute(
-    "role",
-    "status"
-  );
+  toast.setAttribute("role","status");
 
-  const icone =
-    document.createElement(
-      "span"
-    );
+  const icone = document.createElement("span");
 
-  icone.setAttribute(
-    "aria-hidden",
-    "true"
-  );
+  icone.setAttribute("aria-hidden", "true");
 
-  icone.textContent =
-    icones[tipoSeguro];
+  icone.textContent = icones[tipoSeguro];
 
-  const texto =
-    document.createElement(
-      "span"
-    );
+  const texto = document.createElement("span");
 
-  texto.textContent =
-    mensagem === null ||
-    mensagem === undefined
-      ? ""
-      : String(mensagem);
+  texto.textContent = mensagem === null || mensagem === undefined ? "" : String(mensagem);
 
-  toast.appendChild(
-    icone
-  );
+  toast.appendChild(icone);
 
-  toast.appendChild(
-    texto
-  );
+  toast.appendChild(texto);
 
-  container.appendChild(
-    toast
-  );
+  container.appendChild(toast);
 
   window.setTimeout(
     function() {
-      if (
-        toast &&
-        toast.parentNode
-      ) {
+      if (toast && toast.parentNode) {
         toast.remove();
       }
     },
     4000
   );
 }
+
 </script>

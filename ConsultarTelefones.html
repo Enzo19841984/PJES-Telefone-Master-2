@@ -14,13 +14,24 @@ Arquivo: ConsultarTelefones.html
     </p>
 
     <button
-      id="btn-imprimir-consulta"
+      id="btn-imprimir-consulta-todos"
       class="btn btn-secondary"
-      onclick="imprimirConsultaPDF()"
+      onclick="imprimirConsultaTodosContatos()"
       style="display:none;"
+      title="Imprimir todos os contatos em PDF (tabela completa)"
     >
-      🖨️ Imprimir / PDF
+      🖨️ Imprimir/PDF
     </button>
+    <button
+      id="btn-novo-telefone-consulta"
+      class="btn btn-primary"
+      onclick="abrirModalNovoTelefone()"
+      style="display:none;"
+      title="Adicionar novo contato (respeita suas comarcas permitidas)"
+    >
+      + Novo Contato
+    </button>
+    <button id="btn-imprimir-consulta" class="hidden" style="display:none;" onclick="imprimirConsultaPDF()" aria-hidden="true" tabindex="-1"></button>
 
   </div>
 

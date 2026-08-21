@@ -343,6 +343,26 @@ function criarSeletorComarcas(valorInicial) {
 
   atualizarBotao();
 
+  function limparSelecao() {
+    selecionadas = {};
+    renderizarLista();
+    atualizarBotao();
+  }
+
+  function definirValor(valor) {
+    selecionadas = {};
+    String(valor || "")
+      .split(/[,;\n|]+/)
+      .forEach(function(nome) {
+        nome = String(nome || "").trim();
+        if (nome) {
+          selecionadas[normalizarComarcaKey(nome)] = nome;
+        }
+      });
+    renderizarLista();
+    atualizarBotao();
+  }
+
   return {
     elemento: wrapper,
     obterValor: function() {
@@ -351,7 +371,9 @@ function criarSeletorComarcas(valorInicial) {
           return selecionadas[key];
         })
         .join(", ");
-    }
+    },
+    limpar: limparSelecao,
+    definirValor: definirValor
   };
 }
 
@@ -438,6 +460,14 @@ function renderizarUsuarios(lista) {
 
     tdComarcas.appendChild(seletorComarcas.elemento);
     tr.appendChild(tdComarcas);
+
+    selectPerfil.addEventListener("change", function() {
+      if (selectPerfil.value === "GESTOR_SISTEMA") {
+        if (seletorComarcas && typeof seletorComarcas.limpar === "function") {
+          seletorComarcas.limpar();
+        }
+      }
+    });
 
     var tdAtivo = criarCelulaUsuario("");
     tdAtivo.style.textAlign = "center";
@@ -642,6 +672,9 @@ function alternarComarcasNovoUsuario() {
   var grupo = document.getElementById("grupo-novo-usuario-comarcas");
   if (!perfil || !grupo) return;
   if (perfil.value === "GESTOR_SISTEMA") {
+    if (novoUsuarioSeletorComarcas && typeof novoUsuarioSeletorComarcas.limpar === "function") {
+      novoUsuarioSeletorComarcas.limpar();
+    }
     grupo.style.display = "none";
     grupo.title = "Gestor do Sistema tem acesso a todas as comarcas";
   } else {
@@ -664,7 +697,8 @@ function salvarNovoUsuario() {
   var ativoCheck = document.getElementById("novo-usuario-ativo");
   var btn = document.getElementById("btn-salvar-novo-usuario");
 
-  var email = emailInput ? String(emailInput.value || "").trim() : "";
+  var emailRaw = emailInput ? String(emailInput.value || "").trim() : "";
+  var email = emailRaw.toLowerCase().includes("@") ? emailRaw : (emailRaw ? emailRaw + "@tjes.jus.br" : "");
   var nome = nomeInput ? String(nomeInput.value || "").trim() : "";
   var perfil = perfilSelect ? String(perfilSelect.value || "").trim().toUpperCase() : "";
   var ativo = ativoCheck ? !!ativoCheck.checked : true;
@@ -676,7 +710,21 @@ function salvarNovoUsuario() {
     if (emailInput) emailInput.focus();
     return;
   }
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+  if (!nome) {
+    mostrarErroNovoUsuario("Informe o nome do usuário.");
+    if (nomeInput) nomeInput.focus();
+    return;
+  }
+  if (nome.length < 3) {
+    mostrarErroNovoUsuario("Informe um nome válido (mínimo de 3 caracteres).");
+    if (nomeInput) nomeInput.focus();
+    return;
+  }
+  if (nome.length > 150) {
+    mostrarErroNovoUsuario("O nome informado é muito grande.");
+    return;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     mostrarErroNovoUsuario("Informe um e-mail válido.");
     return;
   }
@@ -733,4 +781,70 @@ function salvarNovoUsuario() {
     }
   );
 }
+function imprimirUsuarios(){
+  try{
+    var tbody = document.getElementById("corpo-tabela-usuarios");
+    if(!tbody){
+      if(typeof mostrarToast==="function") mostrarToast("Tabela de usuários não encontrada.","warning");
+      return;
+    }
+    var linhas = [];
+    var trs = tbody.querySelectorAll("tr");
+    var realRows = 0;
+    trs.forEach(function(tr){
+      var tds = tr.querySelectorAll("td");
+      // ignora linha de "Carregando..." / vazio / erro (colspan)
+      if(tds.length===1 && tds[0].colSpan && Number(tds[0].colSpan)>=5) return;
+      if(tds.length < 6) return;
+      var email = (tds[0].textContent||"").trim() || "-";
+      var nome = (tds[1].textContent||"").trim() || "-";
+      var sel = tds[2].querySelector("select");
+      var perfilRaw = sel ? String(sel.value||"").trim() : String(tds[2].textContent||"").trim();
+      var perfil = perfilRaw==="GESTOR_SISTEMA" ? "Gestor do Sistema" : perfilRaw==="GESTOR_CONTEUDO" ? "Gestor de Conteúdo" : (perfilRaw||"-");
+      // comarcas
+      var comarcaCell = tds[3];
+      var comBtn = comarcaCell ? comarcaCell.querySelector("button") : null;
+      var comarcas = "";
+      if(comBtn){
+        var txt = String(comBtn.textContent||"").trim();
+        var title = String(comBtn.title||"").trim();
+        if(txt.indexOf("Todas")!==-1) comarcas = "Todas as comarcas";
+        else if(title) comarcas = title;
+        else comarcas = txt || "-";
+      } else {
+        comarcas = String(comarcaCell ? comarcaCell.textContent||"" : "").trim() || "-";
+      }
+      var chk = tds[4].querySelector("input[type=checkbox]");
+      var ativo = chk ? (chk.checked ? "Ativo" : "Inativo") : String(tds[4].textContent||"").trim() || "-";
+      linhas.push([email, nome, perfil, comarcas, ativo]);
+      realRows++;
+    });
+    // Fallback: se tbody ainda vazio e houver dados em memória (caso carregamento assíncrono falhou?)
+    if(!linhas.length){
+      mostrarToast("Nenhum usuário para imprimir.","warning");
+      return;
+    }
+    // Ordena: Sistema no topo, depois Conteúdo, depois alfabético por e-mail
+    linhas.sort(function(a,b){
+      var pa = a[2], pb = b[2];
+      var ra = pa.indexOf("Sistema")!==-1 ? 0 : 1;
+      var rb = pb.indexOf("Sistema")!==-1 ? 0 : 1;
+      if(ra!==rb) return ra - rb;
+      return String(a[0]).localeCompare(String(b[0]), "pt-BR");
+    });
+    var esc=function(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); };
+    var cols=["E-mail","Nome","Perfil","Comarcas","Ativo"];
+    var colunas = cols;
+    var titulo = "Usuários — Lista de acessos";
+    var css="body{font-family:Arial,Helvetica,sans-serif;color:#0f172a;margin:24px;} h1{font-size:18px;margin:0 0 6px;} .sub{color:#64748b;font-size:12px;margin-bottom:14px;} table{width:100%;border-collapse:collapse;font-size:12px;} th{background:#f1f5f9;text-align:left;padding:8px;border:1px solid #cbd5e1;font-weight:700;color:#334155;white-space:nowrap;} td{padding:7px 8px;border:1px solid #e2e8f0;vertical-align:top;} tr:nth-child(even) td{background:#f8fafc;} @media print{ @page{size:A4 landscape;margin:12mm;} body{margin:0;} }";
+    var thead="<tr>"+colunas.map(function(c){return "<th>"+esc(c)+"</th>";}).join("")+"</tr>";
+    var tbodyHtml=linhas.map(function(r){return "<tr>"+r.map(function(v){return "<td>"+esc(v==null?"":String(v))+"</td>";}).join("")+"</tr>";}).join("");
+    if(!tbodyHtml) tbodyHtml="<tr><td colspan=\""+colunas.length+"\" style=\"text-align:center;color:#94a3b8;padding:18px;\">Nenhum registro para imprimir.</td></tr>";
+    var w=window.open("","_blank");
+    if(!w){ if(typeof mostrarToast==="function") mostrarToast("Desbloqueie pop-ups para imprimir.","warning"); return; }
+    var html="<!DOCTYPE html><html><head><meta charset='utf-8'><title>"+esc(titulo)+"</title><style>"+css+"</style></head><body><h1>"+esc(titulo)+"</h1><div class='sub'>"+esc(new Date().toLocaleString('pt-BR'))+" \u00b7 "+linhas.length+" usuários</div><table><thead>"+thead+"</thead><tbody>"+tbodyHtml+"</tbody></table><script>window.onload=function(){ setTimeout(function(){ window.print(); }, 350); }<\/script></body></html>";
+    w.document.open(); w.document.write(html); w.document.close();
+  }catch(e){ console.error(e); if(typeof mostrarToast==="function") mostrarToast("Não foi possível imprimir.","error"); }
+}
+
 </script>

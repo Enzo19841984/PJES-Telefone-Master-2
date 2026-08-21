@@ -166,7 +166,48 @@ function marcarComarcaSolicitada(comarca) {
   }
 }
 
+function cancelarAcessoComarca(botao, comarca, chave) {
+  if (!botao) return;
+  if (!confirm("Cancelar solicitação de acesso à comarca \"" + comarca + "\"?")) return;
+  botao.disabled = true;
+  botao.textContent = "Cancelando...";
+  function finalizarCancel(ok, msg){
+    if (ok) {
+      try{ sessionStorage.removeItem(chave); }catch(e){}
+      botao.textContent = "\uD83D\uDD13 Solicitar acesso";
+      botao.style.background = "";
+      botao.style.borderColor = "";
+      botao.style.color = "";
+      botao.disabled = false;
+      botao.title = "Você só pode editar telefones das suas comarcas. Solicite acesso a esta comarca.";
+      notificarTabela(msg || "Solicitação cancelada.", "success");
+    } else {
+      botao.textContent = "\u2713 Solicitado";
+      botao.disabled = false;
+      notificarTabela(msg || "Falha ao cancelar a solicitação.", "error");
+    }
+  }
+  if (typeof API!=="undefined" && typeof API.cancelarSolicitacaoComarca==="function"){
+    API.cancelarSolicitacaoComarca(comarca, function(res){
+      if (res && res.sucesso===true) finalizarCancel(true, "Solicitação cancelada.");
+      else finalizarCancel(false, (res&&res.erro)||"Falha ao cancelar.");
+    }, function(err){ finalizarCancel(false, (err&&err.message)||"Falha ao cancelar."); });
+  } else {
+    try{ sessionStorage.removeItem(chave); }catch(e){}
+    finalizarCancel(true, "Solicitação cancelada (local).");
+  }
+}
+
 function solicitarAcessoComarca(comarca, botao) {
+  // Toggle: se já está Solicitado, cancela
+  try{
+    var chaveChk = chaveSolicitacaoComarca(comarca);
+    var vChk=null; try{ vChk=sessionStorage.getItem(chaveChk);}catch(e){}
+    if (vChk && botao && String(botao.textContent||"").indexOf("Solicitado")!==-1) {
+      return cancelarAcessoComarca(botao, comarca, chaveChk);
+    }
+  }catch(e){}
+
   if (
     typeof API === "undefined" ||
     typeof API.solicitarPermissaoComarca !== "function"
@@ -193,7 +234,7 @@ function solicitarAcessoComarca(comarca, botao) {
       if (!resposta || resposta.sucesso !== true) {
         if (botao) {
           botao.disabled = false;
-          botao.textContent = textoOriginal || "🔓 Solicitar acesso";
+          botao.textContent = textoOriginal || "\uD83D\uDD13 Solicitar acesso";
         }
 
         notificarTabela(
@@ -209,7 +250,15 @@ function solicitarAcessoComarca(comarca, botao) {
       marcarComarcaSolicitada(comarca);
 
       if (botao) {
-        botao.textContent = "✓ Solicitado";
+        botao.textContent = "\u2713 Solicitado";
+        botao.style.background = "#dcfce7";
+        botao.style.borderColor = "#86efac";
+        botao.style.color = "#166534";
+        botao.disabled = false;
+        botao.title = "Clique novamente para cancelar a solicitação.";
+        // habilita toggle: próximo clique cancela
+        var chaveNew = chaveSolicitacaoComarca(comarca);
+        botao.onclick = function(){ cancelarAcessoComarca(botao, comarca, chaveNew); };
       }
 
       notificarTabela(
@@ -220,7 +269,7 @@ function solicitarAcessoComarca(comarca, botao) {
     function(erro) {
       if (botao) {
         botao.disabled = false;
-        botao.textContent = textoOriginal || "🔓 Solicitar acesso";
+        botao.textContent = textoOriginal || "\uD83D\uDD13 Solicitar acesso";
       }
 
       notificarTabela(
@@ -681,8 +730,8 @@ function renderizarTabela(
 
     td.colSpan =
       mostrarAcoes
-        ? 7
-        : 6;
+        ? 9
+        : 8;
 
     td.textContent =
       "Nenhum telefone encontrado.";
@@ -819,6 +868,18 @@ function renderizarTabela(
         whatsapp
       )
     );
+
+    // E-mail + Endereco (gestor)
+    const email = textoTabela(
+      valorCampoTelefone(item, "eMail", "e_mail", "email", "E-mail", "EMAIL", "E_MAIL")
+    );
+    const endereco = textoTabela(
+      valorCampoTelefone(item, "endereco", "Endereco", "ENDERECO", "endereço", "Endereço")
+    );
+    tr.appendChild(criarCelulaTexto(email, "left"));
+    (function(){ var tdE=tr.lastChild; if(tdE){ tdE.style.maxWidth="180px"; tdE.style.wordBreak="break-word"; tdE.style.fontSize="12px"; } })();
+    tr.appendChild(criarCelulaTexto(endereco, "left"));
+    (function(){ var tdEnd=tr.lastChild; if(tdEnd){ tdEnd.style.maxWidth="220px"; tdEnd.style.wordBreak="break-word"; tdEnd.style.fontSize="12px"; } })();
 
     if (mostrarAcoes) {
       const tdAcoes =

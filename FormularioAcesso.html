@@ -295,24 +295,33 @@ Arquivo: FormularioAcesso.html
   <div class="fa-card">
 
     <div class="fa-head">
-      <h2>🔑 Solicitação de Acesso</h2>
+      <h2>🔑 Solicitação de Acesso Administrativo</h2>
       <p>
         Solicite acesso como <strong>Gestor de Conteúdo</strong> (comarcas específicas) ou
-        <strong>Gestor do Sistema</strong> (acesso total). Já é Gestor de Conteúdo? Use aqui para pedir mais comarcas ou promoção.
+        <strong>Gestor do Sistema</strong> (acesso total). Você receberá uma senha de 20 caracteres por e-mail, que só funcionará após aprovação.
       </p>
     </div>
 
     <div class="fa-body">
 
-      <div class="fa-grid">
+            <div class="fa-grid">
 
         <div class="fa-field">
           <label for="acesso-nome"><span class="fa-ic">👤</span> Nome completo *</label>
           <input type="text" id="acesso-nome" maxlength="150" autocomplete="name" placeholder="Seu nome completo" required>
         </div>
 
-        <div class="fa-field">
-          <label><span class="fa-ic">🏛️</span> Comarcas onde trabalha *</label>
+        <div class="fa-field fa-full">
+          <label for="acesso-perfil"><span class="fa-ic">🎖️</span> Perfil solicitado *</label>
+          <select id="acesso-perfil" required>
+            <option value="GESTOR_CONTEUDO">Gestor de Conteúdo — edita telefones das comarcas selecionadas</option>
+            <option value="GESTOR_SISTEMA">Gestor do Sistema - acesso total a todas comarcas, edita telefones e controla os usuários</option>
+          </select>
+          <span class="fa-hint" id="perfil-hint" style="display:block;margin-top:6px;"></span>
+        </div>
+
+        <div class="fa-field" id="grupo-fa-comarcas">
+          <label><span class="fa-ic">🏛️</span> Comarcas onde trabalha <span id="fa-comarcas-req">*</span></label>
           <div id="fa-comarcas-picker"></div>
           <input type="hidden" id="acesso-comarca-valor">
           <span class="fa-hint">Selecione uma ou mais comarcas. Use a busca para filtrar.</span>
@@ -320,17 +329,11 @@ Arquivo: FormularioAcesso.html
 
         <div class="fa-field fa-full">
           <label for="acesso-email"><span class="fa-ic">📧</span> E-mail institucional *</label>
-          <input type="email" id="acesso-email" maxlength="150" autocomplete="email" placeholder="nome@tjes.jus.br" required>
+          <div style="display:flex;align-items:stretch;gap:0;">
+            <input type="text" id="acesso-email" maxlength="80" autocomplete="off" placeholder="nome" required style="flex:1;border-radius:10px 0 0 10px;">
+            <span style="display:flex;align-items:center;padding:0 12px;background:#f1f5f9;border:1.5px solid #cbd5e1;border-left:0;border-radius:0 10px 10px 0;font-size:13px;color:#475569;font-weight:600;white-space:nowrap;">@tjes.jus.br</span>
+          </div>
           <span class="fa-hint">Utilize o e-mail corporativo do TJES (@tjes.jus.br).</span>
-        </div>
-
-        <div class="fa-field fa-full">
-          <label for="acesso-perfil"><span class="fa-ic">🎖️</span> Perfil solicitado *</label>
-          <select id="acesso-perfil" required>
-            <option value="GESTOR_CONTEUDO">Gestor de Conteúdo — edita telefones das comarcas selecionadas</option>
-            <option value="GESTOR_SISTEMA">Gestor do Sistema — acesso total (promoção)</option>
-          </select>
-          <span class="fa-hint" id="perfil-hint" style="display:block;margin-top:6px;"></span>
         </div>
 
         <div class="fa-field fa-full">
@@ -482,12 +485,25 @@ function construirPickerComarcas() {
   btnLimpar.className = "btn btn-secondary";
   btnLimpar.textContent = "Limpar";
   btnLimpar.style.cssText = "padding:6px 10px;font-size:12px;";
+  var btnTodas = document.createElement("button");
+  btnTodas.type = "button";
+  btnTodas.className = "btn btn-secondary";
+  btnTodas.textContent = "Selecionar todas";
+  btnTodas.style.cssText = "padding:6px 10px;font-size:12px;";
+  btnTodas.addEventListener("click", function(){
+    comarcasFormulario.forEach(function(nome){ faComarcasSelecionadas[normalizarComarca(nome)] = nome; });
+    renderListaComarcas(); atualizarBotaoComarcas();
+  });
   var btnOk = document.createElement("button");
   btnOk.type = "button";
   btnOk.className = "btn btn-primary";
   btnOk.textContent = "OK";
   btnOk.style.cssText = "padding:6px 14px;font-size:12px;";
-  rodape.appendChild(btnLimpar);
+  var grupoEsq = document.createElement("div");
+  grupoEsq.style.cssText = "display:flex;gap:6px;align-items:center;";
+  grupoEsq.appendChild(btnLimpar);
+  grupoEsq.appendChild(btnTodas);
+  rodape.appendChild(grupoEsq);
   rodape.appendChild(btnOk);
 
   painel.appendChild(busca);
@@ -593,6 +609,23 @@ function validarComarcasFormulario() {
 
 // ---- Prefill nome bloqueado + perfil hints ----
 
+function alternarVisibilidadeComarcasFormulario(){
+  var perfilEl=document.getElementById("acesso-perfil");
+  var grupo=document.getElementById("grupo-fa-comarcas");
+  var req=document.getElementById("fa-comarcas-req");
+  if(!perfilEl||!grupo) return;
+  var ehSistema=String(perfilEl.value||"").toUpperCase()==="GESTOR_SISTEMA";
+  if(ehSistema){
+    grupo.style.display="none";
+    if(req) req.style.display="none";
+    faComarcasSelecionadas={};
+    if(window._faAtualizarBotaoComarcas) try{ window._faAtualizarBotaoComarcas(); }catch(e){}
+  } else {
+    grupo.style.display="";
+    if(req) req.style.display="";
+  }
+}
+
 function aplicarEstadoFormularioPorPerfil() {
   var nomeEl = document.getElementById("acesso-nome");
   var emailEl = document.getElementById("acesso-email");
@@ -616,14 +649,15 @@ function aplicarEstadoFormularioPorPerfil() {
     var emailGC = "";
     try { emailGC = String(usuarioAtual.email || "").trim().toLowerCase(); } catch(e){}
     if (emailGC) {
-      emailEl.value = emailGC;
+      var prefixGC = emailGC.toLowerCase().endsWith("@tjes.jus.br") ? emailGC.slice(0, -12) : emailGC;
+      emailEl.value = prefixGC;
       emailEl.readOnly = true;
       emailEl.style.background = "#f1f5f9";
       emailEl.style.color = "#475569";
     }
     if (hint) {
-      if (perfil === "GESTOR_SISTEMA") hint.textContent = "Você pedirá promoção a Gestor do Sistema (acesso total).";
-      else hint.textContent = "Você pedirá acesso a mais comarcas como Gestor de Conteúdo.";
+      if (perfil === "GESTOR_SISTEMA") hint.textContent = "Você receberá uma senha de 20 caracteres por e-mail (só funcionará após aprovação).";
+      else hint.textContent = "Você receberá uma senha de 20 caracteres por e-mail (só funcionará após aprovação).";
       hint.style.color = "#64748b";
     }
   } else {
@@ -635,6 +669,7 @@ function aplicarEstadoFormularioPorPerfil() {
     emailEl.style.color = "";
     if (hint) hint.textContent = "";
   }
+  try{ alternarVisibilidadeComarcasFormulario(); }catch(e2){}
 }
 
 function exibirMensagemFormularioAcesso(mensagem, tipo) {
@@ -670,7 +705,8 @@ function enviarFormularioAcesso() {
     try { var nGC = String(usuarioAtual.nome || "").trim(); if (nGC && nGC !== "Visitante") nome = nGC; } catch(e){}
   }
   var comarca = obterComarcasSelecionadasFormulario().trim();
-  var email = emailEl ? String(emailEl.value || "").trim().toLowerCase() : "";
+  var emailRaw = emailEl ? String(emailEl.value || "").trim().toLowerCase() : "";
+  var email = emailRaw.includes("@") ? emailRaw : (emailRaw ? emailRaw + "@tjes.jus.br" : "");
   if (ehGC) { try { var eGC = String(usuarioAtual.email || "").trim().toLowerCase(); if (eGC) email = eGC; } catch(e2){} }
   var perfil = perfilEl ? String(perfilEl.value || "").trim().toUpperCase() : "";
   var justificativa = justEl ? String(justEl.value || "").trim() : "";
@@ -680,11 +716,18 @@ function enviarFormularioAcesso() {
     return;
   }
 
-  if (!validarComarcasFormulario()) {
-    exibirMensagemFormularioAcesso("Selecione ao menos uma comarca na lista.", "error");
-    return;
+  var perfilParaComarca = String(perfil||"").toUpperCase();
+  if (perfilParaComarca !== "GESTOR_SISTEMA") {
+    if (!validarComarcasFormulario()) {
+      exibirMensagemFormularioAcesso("Selecione ao menos uma comarca na lista.", "error");
+      return;
+    }
   }
   comarca = obterComarcasSelecionadasFormulario().trim();
+  if (justificativa.length < 10) {
+    exibirMensagemFormularioAcesso("Descreva a justificativa (mínimo de 10 caracteres).", "error");
+    return;
+  }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     exibirMensagemFormularioAcesso("Informe um e-mail válido.", "error");
@@ -701,11 +744,6 @@ function enviarFormularioAcesso() {
     return;
   }
 
-  if (justificativa.length < 10) {
-    exibirMensagemFormularioAcesso("Descreva a justificativa (mínimo de 10 caracteres).", "error");
-    return;
-  }
-
   if (typeof API === "undefined" || typeof API.enviarFormularioAcesso !== "function") {
     exibirMensagemFormularioAcesso("O serviço de solicitações não está disponível.", "error");
     return;
@@ -719,7 +757,19 @@ function enviarFormularioAcesso() {
     function(resposta) {
       if (botao) { botao.disabled = false; botao.textContent = "Enviar solicitação →"; }
       if (resposta && resposta.sucesso === true) {
-        // Não limpa nome/email se GC (mantém bloqueado)
+        // Gestor: resposta contém senha (pendente) -> nova página de senha com aviso
+        if (resposta.dados && resposta.dados.senha) {
+          var senhaResp = String(resposta.dados.senha||"");
+          var emailResp = String(resposta.dados.email||email);
+          try{ if(typeof exibirSenhaGerada==="function") exibirSenhaGerada(senhaResp, emailResp); }catch(e){}
+          try{ mostrarView('senha-gerada-view'); }catch(e2){}
+          if (typeof mostrarToast === "function") mostrarToast("Acesso em andamento. Senha gerada!", "success");
+          faComarcasSelecionadas = {};
+          if (window._faAtualizarBotaoComarcas) window._faAtualizarBotaoComarcas();
+          if (justEl) justEl.value = "";
+          return;
+        }
+        // Gestor: fluxo normal
         if (!ehGC) {
           if (nomeEl) nomeEl.value = "";
           if (emailEl) emailEl.value = "";
@@ -752,14 +802,17 @@ document.addEventListener("DOMContentLoaded", function() {
   } catch(e){}
   var campoEmail = document.getElementById("acesso-email");
   var campoNome = document.getElementById("acesso-nome");
-  if (campoEmail && email && !campoEmail.value) campoEmail.value = email;
+  if (campoEmail && email && !campoEmail.value) {
+    var emPrefix = String(email).trim().toLowerCase().endsWith("@tjes.jus.br") ? String(email).trim().slice(0, -12) : String(email).trim();
+    campoEmail.value = emPrefix;
+  }
   if (campoNome && nome && nome !== "Visitante" && !campoNome.value) campoNome.value = nome;
 
   iniciarComboboxComarcaCompat();
   carregarComarcasCombobox();
 
   var perfilSel = document.getElementById("acesso-perfil");
-  if (perfilSel) perfilSel.addEventListener("change", aplicarEstadoFormularioPorPerfil);
+  if (perfilSel) perfilSel.addEventListener("change", function(){ try{ aplicarEstadoFormularioPorPerfil(); }catch(e){} try{ alternarVisibilidadeComarcasFormulario(); }catch(e2){} });
 
   // Aplica estado após usuarioAtual assíncrono carregar — tenta algumas vezes
   var tentativas = 0;
@@ -781,3 +834,4 @@ function fecharComboboxComarca(){}
 function comboboxComarcaValida(){ return validarComarcasFormulario(); }
 function selecionarComboboxComarca(n){ var k=normalizarComarca(n); faComarcasSelecionadas[k]=n; if(window._faAtualizarBotaoComarcas) window._faAtualizarBotaoComarcas(); }
 </script>
+

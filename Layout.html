@@ -16,11 +16,12 @@ Arquivo: Layout.html
         <h1>SISTEMA INTELIGENTE DE GESTÃO DE TELEFONES DO PJES</h1>
       </div>
 
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-        <button type="button" id="btn-imprimir-todas-comarcas" class="btn btn-secondary" style="display:none;padding:6px 10px;font-size:12px;" onclick="imprimirTodasComarcas()" title="Imprimir todas as comarcas com seus setores">
-          🖨️ Imprimir todas as comarcas
-        </button>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;min-width:160px;">
         <div id="user-info" class="user-info"></div>
+        <button type="button" id="btn-imprimir-dashboard" class="btn btn-secondary" style="display:none;padding:6px 10px;font-size:12px;" onclick="imprimirDashboardView()" title="Imprimir o dashboard (cartões e gráficos) em PDF">
+          🖨️ Imprimir Dashboard
+        </button>
+        <button type="button" id="btn-imprimir-todas-comarcas" class="hidden" style="display:none;" onclick="imprimirDashboardView()" aria-hidden="true" tabindex="-1"></button>
       </div>
     </header>
 
@@ -34,6 +35,14 @@ Arquivo: Layout.html
 
     <section id="consulta-telefones-view" class="view hidden">
       <?!= include("ConsultarTelefones"); ?>
+    </section>
+
+    <section id="login-view" class="view hidden">
+      <?!= include("Login"); ?>
+    </section>
+
+    <section id="senha-gerada-view" class="view hidden">
+      <?!= include("SenhaGerada"); ?>
     </section>
 
     <section id="formulario-acesso-view" class="view hidden">

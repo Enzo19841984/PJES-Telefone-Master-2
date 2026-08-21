@@ -499,7 +499,7 @@ function erroPadraoSearch(erro) {
 }
 
 /* ==========================================================
- * IMPRESSÃO — Telefones (Gestor)
+ * IMPRESSÃO — Telefones (Gestor/Consulta) e Usuários
  * ========================================================== */
 
 function htmlEscImprimir(v){ return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
@@ -511,41 +511,145 @@ function abrirJanelaImpressao(titulo, colunas, linhas){
   var thead = "<tr>" + colunas.map(function(c){ return "<th>"+htmlEscImprimir(c)+"</th>"; }).join("") + "</tr>";
   var tbody = linhas.map(function(r){ return "<tr>" + r.map(function(v){ return "<td>"+htmlEscImprimir(v==null?"":String(v))+"</td>"; }).join("") + "</tr>"; }).join("");
   if(!tbody) tbody = "<tr><td colspan=\""+colunas.length+"\" style=\"text-align:center;color:#94a3b8;padding:18px;\">Nenhum registro para imprimir.</td></tr>";
-  var html = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>"+htmlEscImprimir(titulo)+"</title><style>"+css+"</style></head><body><h1>"+htmlEscImprimir(titulo)+"</h1><div class='sub'>"+htmlEscImprimir(new Date().toLocaleString('pt-BR'))+" · "+linhas.length+" registros</div><table><thead>"+thead+"</thead><tbody>"+tbody+"</tbody></table><script>window.onload=function(){ setTimeout(function(){ window.print(); }, 350); }<\/script></body></html>";
+  var html = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>"+htmlEscImprimir(titulo)+"</title><style>"+css+"</style></head><body><h1>"+htmlEscImprimir(titulo)+"</h1><div class='sub'>"+htmlEscImprimir(new Date().toLocaleString('pt-BR'))+" \u00b7 "+linhas.length+" registros</div><table><thead>"+thead+"</thead><tbody>"+tbody+"</tbody></table><script>window.onload=function(){ setTimeout(function(){ window.print(); }, 350); }<\\/script></body></html>";
   w.document.open(); w.document.write(html); w.document.close();
 }
 
 function linhasDeTelefones(lista){
+  function pick(it, keys){ for(var i=0;i<keys.length;i++){ var k=keys[i]; if(it[k]!=null && String(it[k]).trim()!=="") return it[k]; } return ""; }
   return (Array.isArray(lista)?lista:[]).map(function(it){
     return [
       it.comarca||it.COMARCA||"-",
       it.setor||it.SETOR||"-",
       it.tipo||it.TIPO||"-",
-      it.telefone||it.TELEFONE||it.numero||"-",
+      it.telefone||it.TELEFONE||it.numero||pick(it,["numero","NUMERO"])||"-",
       it.ramal||it.RAMAL||"-",
-      it.whatsapp||it.WHATSAPP||"-"
+      it.whatsapp||it.WHATSAPP||"-",
+      pick(it,["eMail","e_mail","email","E-mail","EMAIL","E_MAIL"])||"-",
+      pick(it,["endereco","Endereco","ENDERECO","endere\u00e7o","Endere\u00e7o"])||"-"
     ];
   });
 }
 
-function imprimirTodosNumeros(){
-  var dados = (typeof listaTelefones!=="undefined" && Array.isArray(listaTelefones)) ? listaTelefones : ((typeof todosTelefones!=="undefined"&&Array.isArray(todosTelefones))?todosTelefones:[]);
-  // aplica apenas escopo (já vem filtrado do servidor), mas ignora filtros de tela
-  abrirJanelaImpressao("Telefones — Todos os números", ["Comarca","Setor","Tipo","Telefone","Ramal","WhatsApp"], linhasDeTelefones(dados));
+/* ----------------------------------------------------------
+ * CARDS — helpers (guard evita colisão com DashboardJS)
+ * ---------------------------------------------------------- */
+if(typeof htmlEscCards!=="function"){
+  var htmlEscCards = function(v){ return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); };
+}
+if(typeof blocoCardsHtml!=="function"){
+  var blocoCardsHtml = function(titulo, valores){
+    var lista = Array.isArray(valores) ? valores.filter(function(v){ var t=String(v||"").trim(); return t && t!=="-" && t!=="–" && t!=="—"; }) : [];
+    if(!lista.length) return '<div class="bloco"><div class="bloco-titulo">'+htmlEscCards(titulo)+'</div><div class="vazio">-</div></div>';
+    var itens = lista.map(function(v){ return '<div class="item">'+htmlEscCards(v)+'</div>'; }).join("");
+    return '<div class="bloco"><div class="bloco-titulo">'+htmlEscCards(titulo)+'</div><div class="bloco-lista">'+itens+'</div></div>';
+  };
+}
+if(typeof cardSetorHtmlComarca!=="function"){
+  var cardSetorHtmlComarca = function(comarca, setor, grupos){
+    var g = grupos || {telefones:[],ramais:[],whatsapps:[],emails:[],enderecos:[]};
+    return '<div class="setor-card">'
+      + '<h3>'+htmlEscCards(setor)+'</h3>'
+      + blocoCardsHtml("Telefone", g.telefones)
+      + blocoCardsHtml("Ramal", g.ramais)
+      + blocoCardsHtml("WhatsApp", g.whatsapps)
+      + blocoCardsHtml("E-mail", g.emails)
+      + blocoCardsHtml("Endere\u00e7o", g.enderecos)
+      + '</div>';
+  };
 }
 
-function imprimirEstaPagina(){
+/* ----------------------------------------------------------
+ * TODOS OS CONTATOS — cartões por setor agrupados por comarca
+ * ---------------------------------------------------------- */
+function imprimirTodosContatosCards(){
+  try{
+    var setoresMap = (typeof setoresPorComarca!=="undefined" && setoresPorComarca) ? setoresPorComarca : {};
+    var ordem = (typeof ordemComarcas!=="undefined" && Array.isArray(ordemComarcas) && ordemComarcas.length) ? ordemComarcas : Object.keys(setoresMap).sort(function(a,b){return a.localeCompare(b,"pt-BR");});
+    var temOrdem = ordem && ordem.length;
+    if(!temOrdem){
+      var srcFallback = [];
+      try{ if(typeof todosTelefones!=="undefined" && Array.isArray(todosTelefones) && todosTelefones.length) srcFallback=todosTelefones; else if(typeof listaTelefones!=="undefined" && Array.isArray(listaTelefones)) srcFallback=listaTelefones; }catch(e){ srcFallback=[]; }
+      var tmp={};
+      srcFallback.forEach(function(it){
+        var c=String(it.comarca||it.COMARCA||"Sem comarca").trim()||"Sem comarca";
+        var s=String(it.setor||it.SETOR||"Sem setor").trim()||"Sem setor";
+        if(!tmp[c]) tmp[c]=[];
+        if(tmp[c].indexOf(s)===-1) tmp[c].push(s);
+      });
+      setoresMap=tmp;
+      ordem=Object.keys(tmp).sort(function(a,b){return a.localeCompare(b,"pt-BR");});
+    }
+    var htmlCards="";
+    var totalComarcas=0, totalSetores=0, totalContatos=0;
+    try{ if(typeof todosTelefones!=="undefined" && Array.isArray(todosTelefones)) totalContatos=todosTelefones.length; else if(typeof listaTelefones!=="undefined" && Array.isArray(listaTelefones)) totalContatos=listaTelefones.length; }catch(e){ totalContatos=0; }
+    ordem.forEach(function(comarca){
+      var setores = setoresMap[comarca] || [];
+      if(!setores.length) return;
+      totalComarcas++;
+      htmlCards += '<h2 class="comarca-titulo">'+htmlEscCards(comarca)+' <span class="comarca-meta">'+setores.length+' setor'+(setores.length===1?'':'es')+'</span></h2>';
+      htmlCards += '<div class="cards">';
+      setores.forEach(function(setor){
+        var chave = comarca + "||" + setor;
+        var regs = [];
+        try{ regs = (typeof telefonesPorSetor!=="undefined" && telefonesPorSetor[chave]) ? telefonesPorSetor[chave] : []; }catch(e){ regs=[]; }
+        if(!regs.length){
+          try{
+            var src2=[];
+            if(typeof todosTelefones!=="undefined" && Array.isArray(todosTelefones)) src2=todosTelefones;
+            regs = src2.filter(function(it){ return String(it.comarca||it.COMARCA||"").trim()===comarca && String(it.setor||it.SETOR||"").trim()===setor; });
+          }catch(e2){ regs=[]; }
+        }
+        var grupos=null;
+        try{ grupos=(typeof agruparContatosDoSetor==="function")?agruparContatosDoSetor(regs):null; }catch(e3){ grupos=null; }
+        if(!grupos) grupos={telefones:[],ramais:[],whatsapps:[],emails:[],enderecos:[]};
+        if(!grupos.telefones.length && !grupos.ramais.length && !grupos.whatsapps.length && !grupos.emails.length && !grupos.enderecos.length && regs.length){
+          var g2={telefones:[],ramais:[],whatsapps:[],emails:[],enderecos:[]};
+          var vistos={};
+          function add(tipo,val){ var tx=String(val||"").trim(); if(!tx||tx==="-"||tx==="\u2013"||tx==="\u2014") return; if(vistos[tipo+":"+tx]) return; vistos[tipo+":"+tx]=1; g2[tipo].push(tx); }
+          regs.forEach(function(it){
+            add("telefones", it.telefone||it.TELEFONE||it.numero||it.NUMERO);
+            add("ramais", it.ramal||it.RAMAL);
+            add("whatsapps", it.whatsapp||it.WHATSAPP||it.WhatsApp);
+            add("emails", it.email||it.EMAIL||it["E-mail"]||it["eMail"]||it.E_MAIL);
+            add("enderecos", it.endereco||it.ENDERECO||it["Endere\u00e7o"]||it["endere\u00e7o"]);
+          });
+          grupos=g2;
+        }
+        totalSetores++;
+        htmlCards += cardSetorHtmlComarca(comarca, setor, grupos);
+      });
+      htmlCards += '</div>';
+    });
+    if(!htmlCards){
+      htmlCards='<div class="setor-card"><h3>Nenhum contato</h3><div class="vazio">Nenhum registro para imprimir.</div></div>';
+    }
+    var w = window.open("", "_blank");
+    if(!w){ if(typeof mostrarToast==="function") mostrarToast("Desbloqueie pop-ups para imprimir.","warning"); return; }
+    var css="body{font-family:Arial,Helvetica,sans-serif;color:#0f172a;margin:24px;} h1{font-size:20px;margin:0 0 4px;} .sub{color:#64748b;font-size:12px;margin-bottom:18px;} .comarca-titulo{font-size:15px;font-weight:800;color:#0f172a;margin:22px 0 10px;padding:8px 10px;background:#f1f5f9;border-left:4px solid #2563eb;border-radius:6px;} .comarca-titulo:first-of-type{margin-top:6px;} .comarca-meta{font-size:11px;font-weight:600;color:#64748b;margin-left:8px;} .cards{column-count:1;} .setor-card{border:1px solid #cbd5e1;border-radius:10px;padding:14px 14px 10px;margin:0 0 14px;background:#fff;break-inside:avoid;page-break-inside:avoid;box-shadow:0 1px 3px rgba(0,0,0,.06);} .setor-card h3{margin:0 0 10px;font-size:14px;font-weight:800;color:#0f172a;border-bottom:1px solid #e2e8f0;padding-bottom:6px;} .bloco{border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:8px 10px;margin-bottom:8px;} .bloco-titulo{font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em;} .bloco-lista{font-size:13px;line-height:1.45;word-break:break-word;color:#0f172a;} .bloco-lista .item{padding:2px 0;} .vazio{color:#94a3b8;font-style:italic;font-size:13px;} @media print{ @page{size:A4 portrait;margin:12mm;} body{margin:0;} .setor-card{box-shadow:none;} .comarca-titulo{break-after:avoid;page-break-after:avoid;} }";
+    var tit="Telefones \u2014 Todos os contatos (por setor)";
+    var html="<!DOCTYPE html><html><head><meta charset='utf-8'><title>"+htmlEscCards(tit)+"</title><style>"+css+"</style></head><body><h1>"+htmlEscCards(tit)+"</h1><div class='sub'>"+htmlEscCards(new Date().toLocaleString('pt-BR'))+" \u00b7 "+totalComarcas+" comarca"+(totalComarcas===1?"":"s")+" \u00b7 "+totalSetores+" setores \u00b7 "+totalContatos+" registros</div>"+htmlCards+"<script>window.onload=function(){ setTimeout(function(){ window.print(); },350); }<\\/script></body></html>";
+    w.document.open(); w.document.write(html); w.document.close();
+  }catch(e){ console.error(e); if(typeof mostrarToast==="function") mostrarToast("N\u00e3o foi poss\u00edvel imprimir.","error"); }
+}
+
+function imprimirTelefonesVisiveis(){
   var dados = [];
   try {
-    // tenta respeitar filtros atuais
-    if (typeof aplicarFiltrosLocais==="function" && typeof listaTelefones!=="undefined") {
+    if(typeof aplicarFiltrosLocais==="function" && typeof listaTelefones!=="undefined" && Array.isArray(listaTelefones)){
       dados = aplicarFiltrosLocais(listaTelefones);
-    } else if (typeof listaTelefones!=="undefined") {
-      dados = listaTelefones;
+    } else if(typeof listaTelefones!=="undefined" && Array.isArray(listaTelefones)){
+      dados = listaTelefones.slice();
+    } else if(typeof todosTelefones!=="undefined" && Array.isArray(todosTelefones)){
+      dados = todosTelefones.slice();
     }
-  } catch(e){ dados = (typeof listaTelefones!=="undefined"?listaTelefones:[]); }
-  // se paginação existir, pega só o que está renderizado ( fallback: tudo filtrado )
-  abrirJanelaImpressao("Telefones — Página atual", ["Comarca","Setor","Tipo","Telefone","Ramal","WhatsApp"], linhasDeTelefones(dados));
+  } catch(e){ try{ dados = (typeof listaTelefones!=="undefined"?listaTelefones:[]).slice(); }catch(e2){ dados=[]; } }
+  if(!Array.isArray(dados)) dados=[];
+  abrirJanelaImpressao("Telefones \u2014 Contatos vis\u00edveis", ["Comarca","Setor","Tipo","Telefone","Ramal","WhatsApp","E-mail","Endere\u00e7o"], linhasDeTelefones(dados));
 }
 
+function imprimirConsultaTodosContatos(){ return imprimirTodosContatosCards(); }
+
+function imprimirTodosNumeros(){ return imprimirTelefonesVisiveis(); }
+function imprimirEstaPagina(){ return imprimirTelefonesVisiveis(); }
 </script>
