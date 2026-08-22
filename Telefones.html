@@ -79,6 +79,22 @@ Arquivo: Telefones.html
         </select>
       </div>
 
+      <div class="filter-group" id="grupo-filtro-setor">
+        <label for="filtro-setor"
+          style="
+            display: block;
+            margin-bottom: 4px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 600;
+          "
+        >Setor</label>
+
+        <select id="filtro-setor" onchange="aplicarFiltros()">
+          <option value="">Todos os setores</option>
+        </select>
+      </div>
+
       <div class="filter-group">
         <label for="filtro-tipo"
           style="

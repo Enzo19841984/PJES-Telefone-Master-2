@@ -280,12 +280,16 @@ function arraySeguro(valor) {
  */
 
 /**
- * Gera senha aleatória de 20 caracteres (A-Z, a-z, 0-9).
+ * Gera senha aleatória de 20 caracteres (A-Z, a-z) via CSPRNG (Utilities.getUuid).
  */
 function gerarSenha20(){
   var chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
   var out="";
-  for(var i=0;i<20;i++) out+= chars.charAt(Math.floor(Math.random()*chars.length));
+  for(var i=0;i<20;i++){
+    var bytes=Utilities.getUuid().replace(/-/g,"");
+    var idx=parseInt(bytes.substr((i*2)%32,2),16)%chars.length;
+    out+=chars.charAt(idx);
+  }
   return out;
 }
 

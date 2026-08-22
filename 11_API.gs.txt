@@ -1416,17 +1416,33 @@ function processarSolicitacaoAPI(id, novoStatus) {
 }
 
 function aprovarSolicitacao(id) {
-  return processarSolicitacaoAPI(
-    id,
-    "APROVADO"
-  );
+  const lock = LockService.getScriptLock();
+  let bloqueado = false;
+  try {
+    lock.waitLock(15000);
+    bloqueado = true;
+    return processarSolicitacaoAPI(
+      id,
+      "APROVADO"
+    );
+  } finally {
+    if (bloqueado) lock.releaseLock();
+  }
 }
 
 function rejeitarSolicitacao(id) {
-  return processarSolicitacaoAPI(
-    id,
-    "REJEITADO"
-  );
+  const lock = LockService.getScriptLock();
+  let bloqueado = false;
+  try {
+    lock.waitLock(15000);
+    bloqueado = true;
+    return processarSolicitacaoAPI(
+      id,
+      "REJEITADO"
+    );
+  } finally {
+    if (bloqueado) lock.releaseLock();
+  }
 }
 
 /**
@@ -3372,6 +3388,23 @@ function criarUsuario(dados) {
 
     sheet.appendRow(novaLinha);
     SpreadsheetApp.flush();
+
+    // Envia senha ao novo usuário por e-mail (fila) — também visível ao Gestor na resposta
+    try{
+      var assuntoN = "PJES Telefones — sua senha de acesso (" + perfil + ")";
+      var corpoN =
+        "Olá " + (nome || email.split("@")[0]) + ",\n\n" +
+        "Seu acesso ao Sistema Inteligente de Gestão de Telefones do PJES foi criado.\n\n" +
+        "E-mail: " + email + "\n" +
+        "Perfil: " + perfil + "\n" +
+        (comarcasSerial ? "Comarcas: " + comarcasSerial + "\n" : "Comarcas: Todas\n") +
+        "Senha (20 caracteres): " + senhaGerada + "\n\n" +
+        "Anote sua senha de acesso. Também foi enviada ao e-mail institucional.\n" +
+        "Você já pode fazer login imediatamente.\n\n" +
+        "Atenciosamente,\nPJES — STI";
+      if (typeof adicionarEmailPendente==="function") adicionarEmailPendente(email, assuntoN, corpoN);
+      else if (typeof MailApp!=="undefined" && MailApp.sendEmail) MailApp.sendEmail({to: email, subject: assuntoN, body: corpoN});
+    }catch(eN){ try{ registrarErroAPI("EMAIL_SENHA_CRIAR_USUARIO", eN); }catch(e2){} }
 
     registrarInfoAPI("CRIAR_USUARIO", email + " -> " + perfil + (ativo ? " (ativo)" : " (inativo)"));
 

@@ -166,6 +166,45 @@ function marcarComarcaSolicitada(comarca) {
   }
 }
 
+/**
+ * Sincroniza estado Solicitado com backend (PENDENTE).
+ * Para cada solicitacao pendente do usuario logado, grava sessionStorage.
+ * Chamar apos renderizar tabela/comarcas.
+ */
+function sincronizarSolicitacoesPendentes(){
+  try{
+    if(typeof API==="undefined"||typeof API.listarSolicitacoes!=="function") return;
+    if(typeof usuarioAtual==="undefined"||!usuarioAtual||!usuarioAtual.email) return;
+    if(String(usuarioAtual.perfil||"").toUpperCase()!=="GESTOR_CONTEUDO") return;
+    var emailAtual = String(usuarioAtual.email||"").trim().toLowerCase();
+    if(!emailAtual) return;
+    API.listarSolicitacoes(function(res){
+      try{
+        if(!res||res.sucesso!==true||!Array.isArray(res.dados)) return;
+        res.dados.forEach(function(s){
+          try{
+            var em=String(s.email||s.EMAIL||"").trim().toLowerCase();
+            var st=String(s.status||s.STATUS||"").trim().toUpperCase();
+            var com=String(s.comarca||s.COMARCA||s.comarcas||"").trim();
+            if(em===emailAtual && st==="PENDENTE" && com){
+              // comarca pode ser lista separada por virgula
+              com.split(/[,;]+/).forEach(function(c){
+                var cc=String(c||"").trim(); if(!cc) return;
+                try{ window.sessionStorage.setItem(chaveSolicitacaoComarca(cc), String(Date.now())); }catch(e){}
+              });
+            }
+          }catch(e){}
+        });
+        // re-render se necessario para refletir Solicitado
+        try{
+          if(typeof renderizarTabela==="function" && typeof listaTelefones!=="undefined") renderizarTabela(listaTelefones);
+          else if(typeof atualizarTabelaComFiltros==="function") atualizarTabelaComFiltros();
+        }catch(eR){}
+      }catch(e){}
+    }, function(){ /* GESTOR_CONTEUDO nao tem permissao para listar: silencioso */ });
+  }catch(e){}
+}
+
 function cancelarAcessoComarca(botao, comarca, chave) {
   if (!botao) return;
   if (!confirm("Cancelar solicitação de acesso à comarca \"" + comarca + "\"?")) return;
@@ -395,7 +434,7 @@ function notificarTabela(
       tipo || "info"
     );
   } else {
-    alert(mensagem);
+    try{ alert(mensagem); }catch(e){ console.warn(mensagem); }
   }
 }
 
@@ -1002,6 +1041,7 @@ function renderizarTabela(
       tr
     );
   });
+  try{ if(typeof sincronizarSolicitacoesPendentes==="function" && !document.getElementById("telefones-view")?.classList.contains("hidden")) sincronizarSolicitacoesPendentes(); }catch(e){}
 }
 
 function atualizarTabela() {

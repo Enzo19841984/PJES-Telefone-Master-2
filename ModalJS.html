@@ -17,7 +17,12 @@ function preencherSelectModal(id, valores, placeholder){
   Array.from(valores||[]).sort(function(a,b){return String(a).localeCompare(String(b),"pt-BR");}).forEach(function(v){
     var o=document.createElement("option"); o.value=String(v); o.textContent=String(v); sel.appendChild(o);
   });
-  var optNovo=document.createElement("option"); optNovo.value="__NOVO__"; optNovo.textContent="Novo"; sel.appendChild(optNovo);
+  var optNovo=document.createElement("option"); optNovo.value="__NOVO__"; optNovo.textContent="Novo";
+  if (sel.options.length > 1) {
+    sel.insertBefore(optNovo, sel.options[1]);
+  } else {
+    sel.appendChild(optNovo);
+  }
   var opts=Array.from(sel.options).map(function(o){return o.value;});
   if(atual && opts.indexOf(atual)!==-1) sel.value=atual;
 }
@@ -168,7 +173,15 @@ function obterSetoresModal(micro, comarca){
       }
     } else {
       if(set.size===0){
-        Object.keys(setoresPorComarca).forEach(function(k){ (setoresPorComarca[k]||[]).forEach(function(s){ set.add(s); }); });
+        var allowedCheck = (typeof comarcasPermitidasDoUsuario==="function") ? comarcasPermitidasDoUsuario() : null;
+        Object.keys(setoresPorComarca).forEach(function(k){
+          // Gestor Conteúdo: só setores de comarcas permitidas
+          if(allowedCheck!==null){
+            var ckAllowed = (typeof normalizarChaveModal==="function") ? normalizarChaveModal(k) : String(k).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]/g,"").toUpperCase();
+            if(allowedCheck.indexOf(ckAllowed)===-1) return;
+          }
+          (setoresPorComarca[k]||[]).forEach(function(s){ set.add(s); });
+        });
       }
     }
   }

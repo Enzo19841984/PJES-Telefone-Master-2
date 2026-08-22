@@ -42,7 +42,7 @@ Arquivo: Login.html — Login do Usuário de Consulta (e-mail + senha 20)
         <label for="login-email">📧 E-mail institucional</label>
         <div style="display:flex;align-items:stretch;">
           <input id="login-email" type="text" maxlength="80" autocomplete="off" placeholder="nome" style="flex:1;border-radius:10px 0 0 10px;">
-          <span style="display:flex;align-items:center;padding:0 12px;background:#f1f5f9;border:1.5px solid #cbd5e1;border-left:0;border-radius:0 10px 10px 0;font-size:13px;color:#475569;font-weight:600;white-space:nowrap;">@tjes.jus.br</span>
+          <span class="dominio-sufixo" style="display:flex;align-items:center;padding:0 12px;background:#f1f5f9;border:1.5px solid #cbd5e1;border-left:0;border-radius:0 10px 10px 0;font-size:13px;color:#475569;font-weight:600;white-space:nowrap;">@tjes.jus.br</span>
         </div>
       </div>
       <div class="lg-field">
@@ -94,13 +94,14 @@ function limparMensagemLogin(){
 function fazerLoginConsulta(){
   limparMensagemLogin();
   var emailRaw = String(document.getElementById("login-email")?.value || "").trim().toLowerCase();
-  var email = emailRaw.includes("@") ? emailRaw : (emailRaw ? emailRaw + "@tjes.jus.br" : "");
+  var _domLogin = (typeof window.DOMINIO_INSTITUCIONAL!=="undefined"&&window.DOMINIO_INSTITUCIONAL)||"tjes.jus.br";
+  var email = emailRaw.includes("@") ? emailRaw : (emailRaw ? emailRaw + "@" + _domLogin : "");
   var senha = String(document.getElementById("login-senha")?.value || "").trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
     exibirMensagemLogin("Informe um e-mail válido.", "error"); return;
   }
-  if(!email.endsWith("@tjes.jus.br")){
-    exibirMensagemLogin("Use o e-mail institucional (@tjes.jus.br).", "error"); return;
+  if(!email.toLowerCase().endsWith("@" + _domLogin.toLowerCase())){
+    exibirMensagemLogin("Use o e-mail institucional (@" + _domLogin + ").", "error"); return;
   }
   if(!senha || senha.length !== 20){
     exibirMensagemLogin("A senha deve ter 20 caracteres.", "error"); return;
@@ -115,6 +116,7 @@ function fazerLoginConsulta(){
       if(btn){ btn.disabled=false; btn.textContent="Entrar →"; }
       if(resp && resp.sucesso===true && resp.dados){
         try{
+          // NOTA: armazena senha para auto-login via autenticarConsulta; expiracao reduzida para 2h em AppJS.restaurarSessaoConsulta mitiga risco. Ideal: migrar para sessionStorage + hash.
           localStorage.setItem("pjes_consulta_sessao", JSON.stringify({ email: resp.dados.email, nome: resp.dados.nome, perfil: resp.dados.perfil, comarcas: resp.dados.comarcas||[], senha: senha, ts: Date.now() }));
         }catch(e){}
         usuarioAtual = { nome: resp.dados.nome || email.split("@")[0], email: resp.dados.email, perfil: resp.dados.perfil || "GESTOR_CONTEUDO", logado: true, ativo: true, comarcas: Array.isArray(resp.dados.comarcas)?resp.dados.comarcas:[], viaConsulta:true };
@@ -137,6 +139,15 @@ function fazerLoginConsulta(){
   );
 }
 
+// Sincroniza sufixo de dominio com CONFIG
+document.addEventListener("DOMContentLoaded", function(){
+  try{
+    var d=(typeof window.DOMINIO_INSTITUCIONAL!=="undefined"&&window.DOMINIO_INSTITUCIONAL)||"tjes.jus.br";
+    document.querySelectorAll(".dominio-sufixo").forEach(function(el){ el.textContent="@" + d; });
+    // atualiza hint se houver
+    var hint=document.querySelector(".lg-foot a");
+  }catch(e){}
+});
 // Enter para logar
 document.addEventListener("keydown", function(e){
   var view = document.getElementById("login-view");

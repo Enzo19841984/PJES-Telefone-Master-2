@@ -10,11 +10,13 @@ let filtroAtual = {
   texto: "",
   microrregiao: "",
   comarca: "",
-  tipo: ""
+  tipo: "",
+  setor: ""
 };
 
 let pesquisaTimer = null;
 
+// shared with DashboardJS/ConsultarJS — frontend norm variant; GS canonical normalizarChave in 02_Utils.gs.txt
 function normalizarTextoFront(valor) {
   return String(
     valor === null ||
@@ -119,6 +121,11 @@ function aplicarFiltros() {
       "filtro-tipo"
     );
 
+  const setorEl =
+    document.getElementById(
+      "filtro-setor"
+    );
+
   const microAnterior = String(filtroAtual.microrregiao || "");
   const microNovo = microrregiao ? String(microrregiao.value || "") : "";
 
@@ -152,7 +159,59 @@ function aplicarFiltros() {
       ? tipo.value
       : "";
 
+  filtroAtual.setor =
+    setorEl
+      ? setorEl.value
+      : "";
+
   executarPesquisa();
+}
+
+function atualizarFiltroSetorPorComarca() {
+  if (
+    typeof listaTelefones === "undefined" ||
+    !Array.isArray(listaTelefones)
+  ) {
+    return;
+  }
+
+  var filtroComarcaSel = normalizarTextoFront(filtroAtual.comarca || "");
+  try {
+    var elComarca = document.getElementById("filtro-comarca");
+    if (elComarca && elComarca.value !== filtroAtual.comarca) {
+      filtroComarcaSel = normalizarTextoFront(elComarca.value || "");
+    }
+  } catch (e) {}
+
+  var setoresFiltrados = new Set();
+
+  listaTelefones.forEach(function(item){
+    if (!item || !item.setor) return;
+    if (filtroComarcaSel) {
+      var comItem = normalizarTextoFront(item.comarca || "");
+      if (comItem !== filtroComarcaSel) return;
+    }
+    setoresFiltrados.add(String(item.setor));
+  });
+
+  var selectSetor = document.getElementById("filtro-setor");
+  var valorAntesSetor = selectSetor ? String(selectSetor.value || "") : "";
+
+  preencherSelect(
+    "filtro-setor",
+    setoresFiltrados,
+    "Todos os setores"
+  );
+
+  if (selectSetor) {
+    var opcoesSetor = Array.from(selectSetor.options).map(function(o){ return String(o.value || ""); });
+    if (valorAntesSetor && opcoesSetor.indexOf(valorAntesSetor) !== -1) {
+      selectSetor.value = valorAntesSetor;
+    } else if (valorAntesSetor) {
+      selectSetor.value = "";
+      filtroAtual.setor = "";
+    }
+  }
 }
 
 function atualizarFiltroComarcaPorMicrorregiao() {
@@ -247,6 +306,11 @@ function aplicarFiltrosLocais(
       filtroAtual.tipo
     );
 
+  const setor =
+    normalizarTextoFront(
+      filtroAtual.setor
+    );
+
   return dados.filter(item => {
     if (texto) {
       const conteudo =
@@ -292,6 +356,15 @@ function aplicarFiltrosLocais(
       return false;
     }
 
+    if (
+      setor &&
+      normalizarTextoFront(
+        item.setor
+      ) !== setor
+    ) {
+      return false;
+    }
+
     return true;
   });
 }
@@ -311,6 +384,9 @@ function atualizarTabelaComFiltros() {
   );
 }
 
+// L5 perf: carregarFiltros is O(n^2) via some() loops; TODO cache mapaSetorPorComarca grouped by comarca||setor and invalidate on listaTelefones change
+var cacheSetoresPorFiltro = null; // invalidated when listaTelefones changes (future: build Map once)
+
 function carregarFiltros() {
   if (
     typeof listaTelefones ===
@@ -322,6 +398,7 @@ function carregarFiltros() {
     return;
   }
 
+  // perf: setoresFiltro/comarcas built via Set; comarcasPorMicro/setorFiltrados use listaTelefones.some() O(n^2) — acceptable for <5k rows; cacheSetoresPorFiltro reserved for future optimization
   const regioes =
     new Set();
 
@@ -329,6 +406,9 @@ function carregarFiltros() {
     new Set();
 
   const tipos =
+    new Set();
+
+  const setoresFiltro =
     new Set();
 
   listaTelefones.forEach(item => {
@@ -350,6 +430,10 @@ function carregarFiltros() {
       tipos.add(
         String(item.tipo)
       );
+    }
+
+    if (item.setor) {
+      setoresFiltro.add(String(item.setor));
     }
   });
 
@@ -426,6 +510,30 @@ function carregarFiltros() {
     tipos,
     "Todos os tipos"
   );
+
+  // Setor: filtra por microrregião/comarca se selecionadas
+  (function(){
+    var setorFiltrados = setoresFiltro;
+    var filtroMicroF = normalizarTextoFront(filtroAtual.microrregiao || "");
+    var filtroComarcaF = normalizarTextoFront(filtroAtual.comarca || "");
+    if (filtroMicroF || filtroComarcaF) {
+      setorFiltrados = new Set(
+        Array.from(setoresFiltro).filter(function(nomeSetor){
+          return listaTelefones.some(function(it){
+            var matchSetor = String(it.setor||"")===String(nomeSetor);
+            var matchMicro = !filtroMicroF || normalizarTextoFront(it.microrregiao||"")===filtroMicroF;
+            var matchComarca = !filtroComarcaF || normalizarTextoFront(it.comarca||"")===filtroComarcaF;
+            return matchSetor && matchMicro && matchComarca;
+          });
+        })
+      );
+    }
+    preencherSelect(
+      "filtro-setor",
+      setorFiltrados,
+      "Todos os setores"
+    );
+  })();
 }
 
 function preencherSelect(

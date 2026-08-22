@@ -698,7 +698,7 @@ function salvarNovoUsuario() {
   var btn = document.getElementById("btn-salvar-novo-usuario");
 
   var emailRaw = emailInput ? String(emailInput.value || "").trim() : "";
-  var email = emailRaw.toLowerCase().includes("@") ? emailRaw : (emailRaw ? emailRaw + "@tjes.jus.br" : "");
+  var email = emailRaw.toLowerCase().includes("@") ? emailRaw : (emailRaw ? emailRaw + "@" + ((typeof window.DOMINIO_INSTITUCIONAL!=="undefined"&&window.DOMINIO_INSTITUCIONAL)||"tjes.jus.br") : "");
   var nome = nomeInput ? String(nomeInput.value || "").trim() : "";
   var perfil = perfilSelect ? String(perfilSelect.value || "").trim().toUpperCase() : "";
   var ativo = ativoCheck ? !!ativoCheck.checked : true;
@@ -728,8 +728,9 @@ function salvarNovoUsuario() {
     mostrarErroNovoUsuario("Informe um e-mail válido.");
     return;
   }
-  if (!email.toLowerCase().endsWith("@tjes.jus.br")) {
-    mostrarErroNovoUsuario("Somente e-mails @tjes.jus.br são permitidos.");
+  var _domUJS=((typeof window.DOMINIO_INSTITUCIONAL!=="undefined"&&window.DOMINIO_INSTITUCIONAL)||"tjes.jus.br");
+  if (!email.toLowerCase().endsWith("@" + _domUJS.toLowerCase())) {
+    mostrarErroNovoUsuario("Somente e-mails @" + _domUJS + " são permitidos.");
     return;
   }
   if (perfil !== "GESTOR_SISTEMA" && perfil !== "GESTOR_CONTEUDO") {
@@ -768,7 +769,14 @@ function salvarNovoUsuario() {
         mostrarErroNovoUsuario((resposta && resposta.erro) || "Erro ao adicionar usuário.");
         return;
       }
-      mostrarToast("Usuário adicionado com sucesso!", "success");
+      var dadosResp = (resposta && resposta.dados) ? resposta.dados : {};
+      var senhaGerada = String(dadosResp.senha || dadosResp.SENHA || "").trim();
+      // Mostra senha gerada para o Gestor (e já foi enviada por e-mail ao novo usuário)
+      if (senhaGerada) {
+        mostrarModalSenhaUsuario(dadosResp, senhaGerada);
+      } else {
+        mostrarToast("Usuário adicionado com sucesso!", "success");
+      }
       fecharModalAdicionarUsuario();
       carregarUsuarios();
     },
@@ -781,6 +789,46 @@ function salvarNovoUsuario() {
     }
   );
 }
+function mostrarModalSenhaUsuario(dados, senha){
+  var email = String((dados&&dados.email)||"").trim() || String((dados&&dados.EMAIL)||"").trim();
+  var nome = String((dados&&dados.nome)||"").trim() || email.split("@")[0];
+  var perfil = String((dados&&dados.perfil)||"").trim() || "GESTOR_CONTEUDO";
+  // Reusa modal simples via alert estilizado + copia
+  var msg = "Usuário cadastrado!\n\nE-mail: " + email + "\nNome: " + nome + "\nPerfil: " + perfil + "\nSenha (20 caracteres): " + senha + "\n\n⚠️ Anote a senha — ela também foi enviada ao e-mail institucional do usuário.\nEla só funcionará após o primeiro login? Não — já está ativa e pode fazer login imediatamente.";
+  // Tenta copiar automaticamente
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(senha).then(function(){
+        if(typeof mostrarToast==="function") mostrarToast("Senha copiada: " + senha, "success");
+      });
+    }
+  }catch(e){}
+  // Cria overlay simples se não existir
+  var overlayId = "modal-senha-gerada";
+  var existing = document.getElementById(overlayId);
+  if(existing) existing.remove();
+  var overlay = document.createElement("div");
+  overlay.id = overlayId;
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;";
+  var card = document.createElement("div");
+  card.style.cssText = "background:#fff;border-radius:16px;max-width:520px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 40px rgba(0,0,0,.2);";
+  card.innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:22px;">🔑</span><h3 style="margin:0;font-size:16px;color:#0f172a;">Usuário criado — senha gerada</h3></div>' +
+    '<div style="font-size:13px;color:#334155;line-height:1.5;margin-bottom:10px;">E-mail: <b>' + String(email).replace(/&/g,"&amp;").replace(/</g,"&lt;") + '</b><br>Nome: ' + String(nome).replace(/&/g,"&amp;").replace(/</g,"&lt;") + '<br>Perfil: ' + String(perfil).replace(/&/g,"&amp;").replace(/</g,"&lt;") + '</div>' +
+    '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:10px;">' +
+      '<div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">Senha (20 caracteres)</div>' +
+      '<div style="display:flex;gap:8px;align-items:center;">' +
+        '<code style="flex:1;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:14px;letter-spacing:.06em;word-break:break-all;">' + String(senha).replace(/&/g,"&amp;").replace(/</g,"&lt;") + '</code>' +
+        '<button type="button" class="btn btn-secondary" style="padding:8px 12px;white-space:nowrap;" onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + String(senha).replace(/'/g,"\\'") + '\').then(function(){ if(typeof mostrarToast===\'function\') mostrarToast(\'Senha copiada!\', \'success\'); })">⎘ Copiar</button>' +
+      '</div>' +
+    '</div>' +
+    '<div style="background:#fef9c3;border:1px solid #fde68a;color:#854d0e;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:14px;">⚠️ Anote a senha — ela também foi enviada ao e-mail institucional do usuário e já está ativa para login imediato.</div>' +
+    '<div style="display:flex;justify-content:flex-end;"><button type="button" class="btn btn-primary" onclick="document.getElementById(\'' + overlayId + '\').remove()">OK, entendi</button></div>';
+  overlay.appendChild(card);
+  overlay.addEventListener("click", function(e){ if(e.target===overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
 function imprimirUsuarios(){
   try{
     var tbody = document.getElementById("corpo-tabela-usuarios");

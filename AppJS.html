@@ -22,9 +22,9 @@ function restaurarSessaoConsulta(){
     if(!raw) return false;
     var sess = JSON.parse(raw);
     if(!sess || !sess.email || !sess.perfil) return false;
-    // expira em 30 dias
+    // expira em 2h (mitiga exposicao de senha em localStorage; veja Login.html)
     var ts = Number(sess.ts||0);
-    if(ts && (Date.now() - ts) > 30*24*60*60*1000){ localStorage.removeItem("pjes_consulta_sessao"); return false; }
+    if(ts && (Date.now() - ts) > 2*60*60*1000){ localStorage.removeItem("pjes_consulta_sessao"); return false; }
     // se já logado via Google gestor, não sobrescreve
     if(usuarioAtual && usuarioAtual.logado && (usuarioAtual.perfil==="GESTOR_SISTEMA"||usuarioAtual.perfil==="GESTOR_CONTEUDO")) return true;
     usuarioAtual = { nome: sess.nome||sess.email.split("@")[0], email: sess.email, perfil: sess.perfil || "USUARIO_CONSULTA", logado: true, ativo: true, comarcas: Array.isArray(sess.comarcas)?sess.comarcas:[], viaConsulta: true };
@@ -603,6 +603,8 @@ function atualizarInterfaceUsuario() {
       var el=document.getElementById(id);
       if(el){ el.style.display="none"; el.classList.add("hidden"); el.setAttribute("aria-hidden","true"); }
     });
+    // M6/L4: Setor filter visibility — only Gestor Sistema in Telefones view
+    var gSetor=document.getElementById("grupo-filtro-setor"); if(gSetor) gSetor.style.display = (ehGestorSistema && isTelefones) ? "" : "none";
   } catch(ePrint){}
 
   if (
@@ -716,7 +718,6 @@ function fazerLogin() {
  */
 function navegarParaTelefones() {
   if (typeof usuarioAtual !== "undefined" && usuarioAtual && usuarioAtual.logado === true && usuarioAtual.perfil === "GESTOR_CONTEUDO") {
-    // Gestor de Conteúdo usa o mesmo layout de Consulta (mapa + busca) mas com ações administrativas
     mostrarView("consulta-telefones-view");
     return;
   }
@@ -727,6 +728,23 @@ function navegarParaTelefones() {
     usuarioAtual.perfil === "GESTOR_SISTEMA";
 
   mostrarView(ehGestor ? "telefones-view" : "consulta-telefones-view");
+}
+function aoEntrarConsultaTelefonesView(){
+  try{
+    var isGC = typeof usuarioAtual!=="undefined" && usuarioAtual && String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_CONTEUDO";
+    if(!isGC) return;
+    // If list empty or showing placeholder, render only allowed comarcas in ordemComarcas order
+    var container = document.getElementById("consulta-lista");
+    if(!container) return;
+    var vazia = container.querySelector(".consulta-lista-vazio");
+    var hasItems = !!container.querySelector(".comarca-item");
+    if(vazia || !hasItems){
+      if(typeof renderizarComarcas==="function") renderizarComarcas();
+    }
+    // Also ensure search input cleared
+    var campo = document.getElementById("campo-pesquisa-consulta");
+    if(campo && vazia) campo.value = "";
+  }catch(e){}
 }
 
 /**
@@ -871,6 +889,10 @@ function mostrarView(viewId) {
     });
 
   try{ if(typeof atualizarInterfaceUsuario==="function") atualizarInterfaceUsuario(); }catch(eUpd){}
+  if(viewId==="consulta-telefones-view"){
+    try{ if(typeof aoEntrarConsultaTelefonesView==="function") setTimeout(aoEntrarConsultaTelefonesView, 80); }catch(e){}
+    try{ if(typeof renderizarMapaConsulta==="function" && typeof mapaPendenteInit!=="undefined") setTimeout(function(){ if(typeof tentarInicializarMapa==="function") tentarInicializarMapa(); }, 160); }catch(e2){}
+  }
 
   if (
     viewId ===

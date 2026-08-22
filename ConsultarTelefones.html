@@ -10,27 +10,9 @@ Arquivo: ConsultarTelefones.html
   <div class="telefones-header">
 
     <p class="telefones-instrucao">
-      Selecione uma microrregião e depois uma comarca e um setor para ver os contatos.
+      Selecione um município no mapa para ver os detalhes.
     </p>
 
-    <button
-      id="btn-imprimir-consulta-todos"
-      class="btn btn-secondary"
-      onclick="imprimirConsultaTodosContatos()"
-      style="display:none;"
-      title="Imprimir todos os contatos em PDF (tabela completa)"
-    >
-      🖨️ Imprimir/PDF
-    </button>
-    <button
-      id="btn-novo-telefone-consulta"
-      class="btn btn-primary"
-      onclick="abrirModalNovoTelefone()"
-      style="display:none;"
-      title="Adicionar novo contato (respeita suas comarcas permitidas)"
-    >
-      + Novo Contato
-    </button>
     <button id="btn-imprimir-consulta" class="hidden" style="display:none;" onclick="imprimirConsultaPDF()" aria-hidden="true" tabindex="-1"></button>
 
   </div>
@@ -55,44 +37,43 @@ Arquivo: ConsultarTelefones.html
             id="campo-pesquisa-consulta"
             type="search"
             placeholder="Filtrar comarcas ou setores..."
-            oninput="filtrarSetoresConsulta()"
+            oninput="filtrarSetoresConsultaDebounced()"
           >
-
         </div>
 
-        <div class="consulta-microrregiao">
+        <select id="filtro-microrregiao-consulta" style="display:none;" aria-hidden="true" tabindex="-1"><option value=""></option></select>
+        <div class="consulta-microrregiao" style="display:flex;gap:8px;">
 
-          <label
-            for="filtro-microrregiao-consulta"
+          <button
+            id="btn-novo-telefone-consulta"
+            class="btn btn-primary"
+            onclick="abrirModalNovoTelefone()"
+            style="display:none;flex:1;background:#16a34a;border-color:#16a34a;color:#fff;"
+            title="Adicionar novo contato (respeita suas comarcas permitidas)"
           >
-            Microrregião
-          </label>
-
-          <select
-            id="filtro-microrregiao-consulta"
-            onchange="selecionarMicrorregiaoConsulta(this.value)"
+            + Novo Contato
+          </button>
+          <button
+            id="btn-imprimir-consulta-todos"
+            class="btn btn-secondary"
+            onclick="imprimirConteudoPermitido()"
+            style="display:none;flex:1;"
+            title="Imprimir contatos permitidos em PDF"
           >
-            <option value="">
-              Selecione uma microrregião
-            </option>
-          </select>
-
+            🖨️ Imprimir/PDF
+          </button>
         </div>
 
       </div>
 
       <div class="consulta-lista-wrapper">
 
-        <div class="consulta-lista-titulo">
-          Selecione uma comarca e um setor para ver os detalhes
-        </div>
-
         <div
           id="consulta-lista"
           class="consulta-lista"
         >
           <div class="panel consulta-lista-vazio">
-            Selecione uma microrregião para visualizar as comarcas.
+            Selecione um município no mapa para ver os detalhes.
           </div>
         </div>
 

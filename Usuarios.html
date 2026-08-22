@@ -12,6 +12,7 @@ Arquivo: Usuarios.html
       <h2>Usuários</h2>
       <p>Gerencie os perfis de acesso do sistema</p>
     </div>
+<script>document.addEventListener("DOMContentLoaded", function(){ try{ var d=(typeof window.DOMINIO_INSTITUCIONAL!=="undefined"&&window.DOMINIO_INSTITUCIONAL)||"tjes.jus.br"; document.querySelectorAll(".dominio-sufixo").forEach(function(el){ el.textContent="@" + d; }); }catch(e){} });</script>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <button type="button" id="btn-imprimir-usuarios" class="btn btn-secondary" onclick="imprimirUsuarios()" style="display:none;" title="Imprimir lista de usuários em PDF">
         🖨️ Imprimir/PDF
@@ -70,7 +71,7 @@ Arquivo: Usuarios.html
             <label for="novo-usuario-email">E-mail *</label>
             <div style="display:flex;align-items:stretch;">
               <input id="novo-usuario-email" type="text" placeholder="nome" maxlength="80" style="flex:1;border-radius:10px 0 0 10px;">
-              <span style="display:flex;align-items:center;padding:0 10px;background:#f1f5f9;border:1.5px solid #cbd5e1;border-left:0;border-radius:0 10px 10px 0;font-size:12px;color:#475569;font-weight:600;white-space:nowrap;">@tjes.jus.br</span>
+              <span class="dominio-sufixo" style="display:flex;align-items:center;padding:0 10px;background:#f1f5f9;border:1.5px solid #cbd5e1;border-left:0;border-radius:0 10px 10px 0;font-size:12px;color:#475569;font-weight:600;white-space:nowrap;">@tjes.jus.br</span>
             </div>
           </div>
           <div class="form-group full">

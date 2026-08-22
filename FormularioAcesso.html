@@ -331,7 +331,7 @@ Arquivo: FormularioAcesso.html
           <label for="acesso-email"><span class="fa-ic">📧</span> E-mail institucional *</label>
           <div style="display:flex;align-items:stretch;gap:0;">
             <input type="text" id="acesso-email" maxlength="80" autocomplete="off" placeholder="nome" required style="flex:1;border-radius:10px 0 0 10px;">
-            <span style="display:flex;align-items:center;padding:0 12px;background:#f1f5f9;border:1.5px solid #cbd5e1;border-left:0;border-radius:0 10px 10px 0;font-size:13px;color:#475569;font-weight:600;white-space:nowrap;">@tjes.jus.br</span>
+            <span class="dominio-sufixo" style="display:flex;align-items:center;padding:0 12px;background:#f1f5f9;border:1.5px solid #cbd5e1;border-left:0;border-radius:0 10px 10px 0;font-size:13px;color:#475569;font-weight:600;white-space:nowrap;">@tjes.jus.br</span>
           </div>
           <span class="fa-hint">Utilize o e-mail corporativo do TJES (@tjes.jus.br).</span>
         </div>
@@ -649,7 +649,8 @@ function aplicarEstadoFormularioPorPerfil() {
     var emailGC = "";
     try { emailGC = String(usuarioAtual.email || "").trim().toLowerCase(); } catch(e){}
     if (emailGC) {
-      var prefixGC = emailGC.toLowerCase().endsWith("@tjes.jus.br") ? emailGC.slice(0, -12) : emailGC;
+      var _domFA = (typeof window.DOMINIO_INSTITUCIONAL!=="undefined"&&window.DOMINIO_INSTITUCIONAL)||"tjes.jus.br";
+      var prefixGC = emailGC.toLowerCase().endsWith("@" + _domFA.toLowerCase()) ? emailGC.slice(0, -( _domFA.length+1)) : emailGC;
       emailEl.value = prefixGC;
       emailEl.readOnly = true;
       emailEl.style.background = "#f1f5f9";
@@ -706,7 +707,7 @@ function enviarFormularioAcesso() {
   }
   var comarca = obterComarcasSelecionadasFormulario().trim();
   var emailRaw = emailEl ? String(emailEl.value || "").trim().toLowerCase() : "";
-  var email = emailRaw.includes("@") ? emailRaw : (emailRaw ? emailRaw + "@tjes.jus.br" : "");
+  var email = emailRaw.includes("@") ? emailRaw : (emailRaw ? emailRaw + "@" + ((typeof window.DOMINIO_INSTITUCIONAL!=="undefined"&&window.DOMINIO_INSTITUCIONAL)||"tjes.jus.br") : "");
   if (ehGC) { try { var eGC = String(usuarioAtual.email || "").trim().toLowerCase(); if (eGC) email = eGC; } catch(e2){} }
   var perfil = perfilEl ? String(perfilEl.value || "").trim().toUpperCase() : "";
   var justificativa = justEl ? String(justEl.value || "").trim() : "";
@@ -734,8 +735,8 @@ function enviarFormularioAcesso() {
     return;
   }
 
-  if (!email.endsWith("@tjes.jus.br")) {
-    exibirMensagemFormularioAcesso("Utilize o e-mail institucional (@tjes.jus.br).", "error");
+  if (!email.toLowerCase().endsWith("@" + ((typeof window.DOMINIO_INSTITUCIONAL!=="undefined"&&window.DOMINIO_INSTITUCIONAL)||"tjes.jus.br").toLowerCase())) {
+    exibirMensagemFormularioAcesso("Utilize o e-mail institucional (@" + ((typeof window.DOMINIO_INSTITUCIONAL!=="undefined"&&window.DOMINIO_INSTITUCIONAL)||"tjes.jus.br") + ").", "error");
     return;
   }
 
@@ -791,6 +792,7 @@ function enviarFormularioAcesso() {
 }
 
 document.addEventListener("DOMContentLoaded", function() {
+  try{ var d=(typeof window.DOMINIO_INSTITUCIONAL!=="undefined"&&window.DOMINIO_INSTITUCIONAL)||"tjes.jus.br"; document.querySelectorAll(".dominio-sufixo").forEach(function(el){ el.textContent="@" + d; }); var hint=document.querySelector(".fa-hint"); if(hint && hint.textContent.indexOf("@tjes")!==-1) hint.textContent=hint.textContent.replace(/@tjes\.jus\.br/g,"@"+d); }catch(e){}
   // Prefill email/nome se já logado — mas nome pode ser sobrescrito por aplicarEstado
   var email = "";
   var nome = "";
@@ -803,7 +805,7 @@ document.addEventListener("DOMContentLoaded", function() {
   var campoEmail = document.getElementById("acesso-email");
   var campoNome = document.getElementById("acesso-nome");
   if (campoEmail && email && !campoEmail.value) {
-    var emPrefix = String(email).trim().toLowerCase().endsWith("@tjes.jus.br") ? String(email).trim().slice(0, -12) : String(email).trim();
+    var _domFA3=((typeof window.DOMINIO_INSTITUCIONAL!=="undefined"&&window.DOMINIO_INSTITUCIONAL)||"tjes.jus.br"); var emPrefix = String(email).trim().toLowerCase().endsWith("@" + _domFA3.toLowerCase()) ? String(email).trim().slice(0, -(_domFA3.length+1)) : String(email).trim();
     campoEmail.value = emPrefix;
   }
   if (campoNome && nome && nome !== "Visitante" && !campoNome.value) campoNome.value = nome;
