@@ -69,7 +69,9 @@ class ValidationService {
   }
 
   validarDuplicidade(dados, idAtual) {
-    const numero = this.normalizarNumero(valorObjeto(dados, "numero", "Numero"));
+    // v3.34 — normalizado usa VALOR
+    const numeroRaw = textoSeguro(valorObjeto(dados, "numero", "Numero", "valor", "VALOR", "Valor"));
+    const numero = this.normalizarNumero(numeroRaw);
 
     if (!numero) {
       return;
@@ -102,9 +104,15 @@ class ValidationService {
   }
 
   validarCamposObrigatorios(dados) {
-    const regras = [{campo: "microrregiao", nome: "Microrregião"}, {campo: "comarca", nome: "Comarca"},
-      {campo: "setor", nome: "Setor"}, {campo: "tipo", nome: "Tipo"}
-    ];
+    // v3.34 — suporta normalizado (SETOR_ID) e legado (microrregiao/comarca/setor)
+    const ehNormalizado = !!(textoSeguro(valorObjeto(dados, "setorId", "SETOR_ID", "setor_id")) || (typeof DB !== "undefined" && DB.temModeloNormalizado && DB.temModeloNormalizado()));
+    const regras = ehNormalizado
+      ? [{campo: "setorId", nome: "Setor"}, {campo: "tipo", nome: "Tipo"}]
+      : [{campo: "microrregiao", nome: "Microrregião"}, {campo: "comarca", nome: "Comarca"}, {campo: "setor", nome: "Setor"}, {campo: "tipo", nome: "Tipo"}];
+    // Normaliza alias setorId
+    if (ehNormalizado && !textoSeguro(valorObjeto(dados,"setorId","SETOR_ID")) && textoSeguro(valorObjeto(dados,"setor"))) {
+      // Se veio setor nome, será resolvido em TelefoneRepository — não falha aqui
+    }
 
     const faltantes = [];
 

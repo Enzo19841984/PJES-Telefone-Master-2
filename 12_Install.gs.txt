@@ -33,6 +33,14 @@ function instalarSistema() {
       spreadsheet
     );
 
+    // v3.34 — modelo normalizado (mantém TELEFONES legado para compat)
+    criarAbaMunicipios(spreadsheet);
+    criarAbaUnidades(spreadsheet);
+    criarAbaSetores(spreadsheet);
+    criarAbaContatos(spreadsheet);
+    criarAbaTelefonesUteis(spreadsheet);
+    criarAbaAcessosUnidades(spreadsheet);
+
     criarAbaUsuarios(
       spreadsheet
     );
@@ -54,6 +62,10 @@ function instalarSistema() {
     );
 
     criarAbaEmailsPendentes(
+      spreadsheet
+    );
+
+    criarAbaNotificacoes(
       spreadsheet
     );
 
@@ -193,29 +205,39 @@ function criarAbaTelefones(spreadsheet) {
 function criarAbaUsuarios(
   spreadsheet
 ) {
-  const sheet =
-    garantirAbaComCabecalho(
-      spreadsheet,
-      CONFIG.SHEETS.USUARIOS,
-      [
+  // v3.34 — detecta modelo: se já existe MUNICIPIOS/CONTATOS, usa NIVEL schema; senão legado PERFIL
+  const temNormalizado = !!(spreadsheet.getSheetByName(CONFIG.SHEETS.MUNICIPIOS) && spreadsheet.getSheetByName(CONFIG.SHEETS.CONTATOS));
+  const cabecalho = temNormalizado
+    ? ["ID","NOME","EMAIL","NIVEL","ATIVO"]
+    : [
         "EMAIL",
         "NOME",
         "PERFIL",
         "ATIVO",
         "COMARCAS",
         "SENHA"
-      ]
+      ];
+  const sheet =
+    garantirAbaComCabecalho(
+      spreadsheet,
+      CONFIG.SHEETS.USUARIOS,
+      cabecalho
     );
 
-  garantirColunaComarcasUsuarios(
-    spreadsheet,
-    sheet
-  );
+  if (!temNormalizado) {
+    garantirColunaComarcasUsuarios(
+      spreadsheet,
+      sheet
+    );
 
-  garantirColunaSenhaUsuarios(
-    spreadsheet,
-    sheet
-  );
+    garantirColunaSenhaUsuarios(
+      spreadsheet,
+      sheet
+    );
+  } else {
+    // v3.34 — normalizado: garante ID/NIVEL se faltarem
+    garantirColunaIdNivelUsuarios(spreadsheet, sheet);
+  }
 
   return sheet;
 }
@@ -225,6 +247,26 @@ function criarAbaUsuarios(
  * de instalações antigas (limitadores de comarca para
  * gestores de conteúdo).
  */
+function garantirColunaIdNivelUsuarios(spreadsheet, sheet){
+  var headers = DB.headers(sheet);
+  var temId = headers.some(function(h){ return normalizarChave(h)==="ID"; });
+  var temNivel = headers.some(function(h){ return normalizarChave(h)==="NIVEL"; });
+  if(!temId){
+    var ultima = sheet.getLastColumn();
+    sheet.insertColumns(1,1);
+    sheet.getRange(1,1).setValue("ID");
+    headers = DB.headers(sheet);
+  }
+  headers = DB.headers(sheet);
+  temNivel = headers.some(function(h){ return normalizarChave(h)==="NIVEL"; });
+  if(!temNivel){
+    var ultima2 = sheet.getLastColumn();
+    sheet.insertColumns(Math.max(ultima2,1)+1,1);
+    sheet.getRange(1, Math.max(ultima2,1)+1).setValue("NIVEL");
+  }
+  return sheet;
+}
+
 function garantirColunaComarcasUsuarios(
   spreadsheet,
   sheet
@@ -473,6 +515,48 @@ function garantirConfiguracao(
 }
 
 /**
+ * v3.34 — Cria aba MUNICIPIOS.
+ */
+function criarAbaMunicipios(spreadsheet) {
+  return garantirAbaComCabecalho(spreadsheet, CONFIG.SHEETS.MUNICIPIOS, ["ID","NOME","CODIGO_IBGE","ATIVO"]);
+}
+
+/**
+ * v3.34 — Cria aba UNIDADES.
+ */
+function criarAbaUnidades(spreadsheet) {
+  return garantirAbaComCabecalho(spreadsheet, CONFIG.SHEETS.UNIDADES, ["ID","MUNICIPIO_ID","NOME","ENDERECO","CEP","EMAIL","ATIVO"]);
+}
+
+/**
+ * v3.34 — Cria aba SETORES.
+ */
+function criarAbaSetores(spreadsheet) {
+  return garantirAbaComCabecalho(spreadsheet, CONFIG.SHEETS.SETORES, ["ID","UNIDADE_ID","NOME","ENDERECO","CEP","OBSERVACAO","ATIVO"]);
+}
+
+/**
+ * v3.34 — Cria aba CONTATOS.
+ */
+function criarAbaContatos(spreadsheet) {
+  return garantirAbaComCabecalho(spreadsheet, CONFIG.SHEETS.CONTATOS, ["ID","SETOR_ID","TIPO","DESCRICAO","VALOR","DATA_CRIACAO","DATA_ATUALIZACAO","ATIVO","OBSERVACAO"]);
+}
+
+/**
+ * v3.34 — Cria aba TELEFONES_UTEIS (p.78).
+ */
+function criarAbaTelefonesUteis(spreadsheet) {
+  return garantirAbaComCabecalho(spreadsheet, CONFIG.SHEETS.TELEFONES_UTEIS, ["ID","NOME","TIPO","VALOR","ATIVO"]);
+}
+
+/**
+ * v3.34 — Cria aba ACESSOS_UNIDADES (N:N USUARIOS x UNIDADES).
+ */
+function criarAbaAcessosUnidades(spreadsheet) {
+  return garantirAbaComCabecalho(spreadsheet, CONFIG.SHEETS.ACESSOS_UNIDADES, ["ID","USUARIO_ID","UNIDADE_ID","ATIVO"]);
+}
+
+/**
  * Garante o primeiro gestor do sistema.
  */
 function garantirGestorInicial(
@@ -630,6 +714,25 @@ function criarAbaEmailsPendentes(
       "DESTINATARIO",
       "ASSUNTO",
       "CORPO"
+    ]
+  );
+}
+
+/**
+ * Cria a aba NOTIFICACOES.
+ */
+function criarAbaNotificacoes(spreadsheet) {
+  return garantirAbaComCabecalho(
+    spreadsheet,
+    CONFIG.SHEETS.NOTIFICACOES,
+    [
+      "ID",
+      "DestinatarioEmail",
+      "Tipo",
+      "Mensagem",
+      "Lida",
+      "Data",
+      "ReferenciaID"
     ]
   );
 }

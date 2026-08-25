@@ -666,6 +666,24 @@ function listarSolicitacoes() {
   }
 }
 
+function contarSolicitacoesPendentes() {
+  try {
+    new AuthService().exigirPerfil(CONFIG.PERFIS.GESTOR_SISTEMA);
+    const sheet = DB.solicitacoesAcesso();
+    if (!sheet) return respostaSucesso({ total: 0 });
+    const dados = sheet.getDataRange().getValues();
+    if (dados.length <= 1) return respostaSucesso({ total: 0 });
+    const indices = indicesSolicitacao(dados[0]);
+    const pendentes = dados.slice(1).filter(function(row){
+      return String(row[indices.STATUS] || "").trim().toUpperCase() === "PENDENTE";
+    });
+    return respostaSucesso({ total: pendentes.length });
+  } catch (erro) {
+    registrarErroAPI("CONTAR_SOLICITACOES_PENDENTES", erro);
+    return respostaErro(erro);
+  }
+}
+
 /**
  * Solicitação de acesso (área administrativa).
  *
@@ -725,6 +743,13 @@ function autenticarConsulta(dados){
           throw new Error("Usuário inativo. Procure o Gestor do Sistema.");
         }
         encontrado = { email: email, nome: nomeLin || email.split("@")[0], perfil: perfilLin, ativo: true, comarcas: comarcasLin };
+        try{
+          const gestoresLogin = obterEmailsGestoresSistema();
+          const msgLogin = (nomeLin || email.split("@")[0]) + " (" + email + ") fez login no sistema como " + perfilLin + ".";
+          gestoresLogin.forEach(function(emailG){
+            try{ if(normalizarEmail(emailG) !== email) criarNotificacao(emailG, "LOGIN", msgLogin, email); }catch(e){}
+          });
+        }catch(eLoginNotif){ try{ registrarErroAPI("NOTIFICAR_LOGIN", eLoginNotif); }catch(e){} }
         break;
       }
     }
@@ -898,6 +923,13 @@ function solicitarAcesso(nome, perfil, justificativa, comarca) {
         "NOTIFICAR_NOVA_SOLICITACAO",
         erroEmail
       );
+    }
+
+    try {
+      const msgNotif = nomeNormalizado + " (" + emailSolicitante + ") solicitou acesso como " + perfilSolicitado + (comarcaNormalizada ? " \u2014 comarca: " + comarcaNormalizada : "") + ".";
+      notificarGestoresSistemaSobreSolicitacao("SOLICITACAO_PERFIL", msgNotif, id);
+    } catch (erroNotif) {
+      registrarErroAPI("NOTIFICAR_SOLICITACAO_PERFIL", erroNotif);
     }
 
     return respostaSucesso({ id: id });
@@ -1107,6 +1139,11 @@ function enviarFormularioAcesso(dados) {
       sheetSolicGestor.appendRow(linhaSolicG);
       SpreadsheetApp.flush();
       try{ notificarNovaSolicitacao(email, nome, perfilSolicitado, comarca, justificativa); }catch(eN){ registrarErroAPI("NOTIFICAR_NOVA_SOLICITACAO", eN); }
+      try{
+        const msgPerfil = nome + " (" + email + ") solicitou acesso como " + perfilSolicitado + (comarca ? " \u2014 comarca: " + comarca : "") + ".";
+        notificarGestoresSistemaSobreSolicitacao("SOLICITACAO_PERFIL", msgPerfil, idG);
+        try{ criarNotificacao(email, "SENHA_GERADA", "Sua senha de acesso foi gerada e enviada por e-mail. Aguarde a aprova\u00e7\u00e3o do Gestor do Sistema para ativar seu login.", idG); }catch(eSen){}
+      }catch(eNotifG){ registrarErroAPI("NOTIFICAR_FORMULARIO_GESTOR", eNotifG); }
       // E-mail ao solicitante com senha + aviso de pendência
       try{
         var assuntoSenhaG = "Sua senha de acesso — Sistema de Telefones PJES (acesso pendente)";
@@ -1388,6 +1425,13 @@ function processarSolicitacaoAPI(id, novoStatus) {
       );
     }
 
+    try {
+      const aprovado = status === "APROVADO";
+      notificarUsuarioSobreDecisao(solicitacao.email, aprovado, solicitacao.perfil, idBusca);
+    } catch (erroNotifDecisao) {
+      registrarErroAPI("NOTIFICAR_DECISAO_NOTIF", erroNotifDecisao);
+    }
+
     registrarInfoAPI(
       status === "APROVADO"
         ? "APROVAR_SOLICITACAO"
@@ -1451,11 +1495,32 @@ function rejeitarSolicitacao(id) {
  * ==========================================================
  */
 
-function listarHistoricoGeral() {
+function listarHistoricoGeral(authDados) {
   try {
-    new AuthService().exigirPermissao(
-      CONFIG.PERMISSOES.HISTORICO
-    );
+    let usuarioHistPerm = null;
+    try {
+      new AuthService().exigirPermissao(
+        CONFIG.PERMISSOES.HISTORICO
+      );
+      usuarioHistPerm = new AuthService().usuarioAtual();
+    } catch (ePermHist) {
+      if (authDados && typeof authDados === "object") {
+        try {
+          const emailAuthH = normalizarEmail(valorObjeto(authDados, "email", "EMAIL") || "");
+          const senhaAuthH = textoSeguro(valorObjeto(authDados, "senha", "SENHA", "password") || "");
+          if (emailAuthH && senhaAuthH) {
+            const resAuthH = autenticarConsulta({ email: emailAuthH, senha: senhaAuthH });
+            if (resAuthH && resAuthH.sucesso === true && resAuthH.dados) {
+              const pH = String(resAuthH.dados.perfil || "").toUpperCase();
+              if (pH === CONFIG.PERFIS.GESTOR_SISTEMA || pH === CONFIG.PERFIS.GESTOR_CONTEUDO) {
+                usuarioHistPerm = { email: resAuthH.dados.email, perfil: pH, logado: true, ativo: true, comarcas: resAuthH.dados.comarcas || [] };
+              }
+            }
+          }
+        } catch (eAH) {}
+      }
+      if (!usuarioHistPerm || !usuarioHistPerm.logado) throw ePermHist;
+    }
 
     const service =
       new HistoryService();
@@ -1956,10 +2021,10 @@ function listarHistoricoGeral() {
         };
       });
 
+    // v3.32: Gestor Conteúdo vê apenas alterações das comarcas que possui acesso
     let historicoFiltrado = resultado;
 
-    const usuarioHistorico =
-      new AuthService().usuarioAtual();
+    const usuarioHistorico = usuarioHistPerm || new AuthService().usuarioAtual();
 
     if (
       usuarioHistorico.logado &&
@@ -2353,6 +2418,452 @@ function registrarErroAPI(
  * AUXILIARES
  * ==========================================================
  */
+
+/**
+ * ==========================================================
+ * NOTIFICACOES
+ * ==========================================================
+ */
+
+const NOTIFICACAO_TIPOS = [
+  "LOGIN",
+  "SENHA_GERADA",
+  "SOLICITACAO_PERFIL",
+  "SOLICITACAO_COMARCA",
+  "SOLICITACAO_APROVADA",
+  "SOLICITACAO_REJEITADA",
+  "CANCELAMENTO"
+];
+
+function indicesNotificacao(linhaCabecalho) {
+  const alvos = {
+    ID: ["ID"],
+    DESTINATARIO: ["DESTINATARIOEMAIL", "DESTINATARIO", "EMAIL"],
+    TIPO: ["TIPO"],
+    MENSAGEM: ["MENSAGEM"],
+    LIDA: ["LIDA"],
+    DATA: ["DATA"],
+    REFERENCIA: ["REFERENCIAID", "REFERENCIA"]
+  };
+  const indices = {};
+  (Array.isArray(linhaCabecalho) ? linhaCabecalho : []).forEach((cabecalho, i) => {
+    const chave = normalizarChave(cabecalho);
+    Object.keys(alvos).forEach(grupo => {
+      if (
+        indices[grupo] === undefined &&
+        alvos[grupo].some(nome => normalizarChave(nome) === chave)
+      ) {
+        indices[grupo] = i;
+      }
+    });
+  });
+  return indices;
+}
+
+function montarLinhaNotificacao(indices, campos) {
+  const largura =
+    Object.keys(indices).reduce(
+      (maximo, grupo) => Math.max(maximo, indices[grupo] + 1),
+      0
+    );
+  const linha = new Array(largura).fill("");
+  Object.keys(campos).forEach(grupo => {
+    if (indices[grupo] !== undefined) {
+      linha[indices[grupo]] = campos[grupo];
+    }
+  });
+  return linha;
+}
+
+function obterAbaNotificacoesAPI() {
+  const ss = obterPlanilhaAPI();
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.NOTIFICACOES);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEETS.NOTIFICACOES);
+  }
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow([
+      "ID",
+      "DestinatarioEmail",
+      "Tipo",
+      "Mensagem",
+      "Lida",
+      "Data",
+      "ReferenciaID"
+    ]);
+  }
+  return sheet;
+}
+
+function obterEmailsGestoresSistema() {
+  const lista = [];
+  try {
+    const sheet = DB.usuarios();
+    const mapa = DB.map(sheet);
+    const idxEmail = mapa.EMAIL;
+    const idxPerfil = mapa.PERFIL;
+    const idxAtivo = mapa.ATIVO;
+    if (idxEmail === undefined || idxPerfil === undefined || idxAtivo === undefined) {
+      const fallback = obterConfiguracaoAPI("EMAIL_GESTOR");
+      if (fallback && emailValidoAPI(fallback)) {
+        lista.push(normalizarEmail(fallback));
+      }
+      return lista;
+    }
+    DB.read(sheet).forEach(linha => {
+      const perfil = String(linha[idxPerfil - 1] || "").trim().toUpperCase();
+      const ativo = paraBoolean(linha[idxAtivo - 1]);
+      const email = normalizarEmail(linha[idxEmail - 1]);
+      if (
+        perfil === CONFIG.PERFIS.GESTOR_SISTEMA &&
+        ativo &&
+        emailValidoAPI(email)
+      ) {
+        lista.push(email);
+      }
+    });
+  } catch (erro) {
+    registrarInfoAPI(
+      "OBTER_GESTORES_SISTEMA",
+      "Falha ao listar gestores: " + (erro.message || erro)
+    );
+  }
+  if (lista.length === 0) {
+    try {
+      const fallback = obterConfiguracaoAPI("EMAIL_GESTOR");
+      if (fallback && emailValidoAPI(fallback)) {
+        lista.push(normalizarEmail(fallback));
+      }
+    } catch (erro) {}
+  }
+  const unicos = {};
+  const dedup = [];
+  lista.forEach(email => {
+    const norm = normalizarEmail(email);
+    if (!unicos[norm]) {
+      unicos[norm] = true;
+      dedup.push(norm);
+    }
+  });
+  return dedup;
+}
+
+function criarNotificacao(destinatarioEmail, tipo, mensagem, referencia) {
+  const lock = LockService.getScriptLock();
+  let precisaLiberar = false;
+  try {
+    if (!lock.hasLock()) {
+      lock.waitLock(30000);
+      precisaLiberar = true;
+    }
+    const destinatario = normalizarEmail(destinatarioEmail);
+    if (!emailValidoAPI(destinatario)) {
+      throw new Error("E-mail destinat\u00e1rio inv\u00e1lido para notifica\u00e7\u00e3o.");
+    }
+    const tipoNorm = String(tipo || "").trim().toUpperCase();
+    if (NOTIFICACAO_TIPOS.indexOf(tipoNorm) === -1) {
+      throw new Error("Tipo de notifica\u00e7\u00e3o inv\u00e1lido: " + tipoNorm);
+    }
+    const mensagemNorm = String(mensagem || "").trim();
+    if (!mensagemNorm) {
+      throw new Error("Mensagem da notifica\u00e7\u00e3o \u00e9 obrigat\u00f3ria.");
+    }
+    const mensagemLimitada = mensagemNorm.length > 2000 ? mensagemNorm.slice(0, 2000) : mensagemNorm;
+    const referenciaNorm = textoSeguro(referencia);
+    const sheet = obterAbaNotificacoesAPI();
+    const dadosCab = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0] || [];
+    const indices = indicesNotificacao(dadosCab);
+    if (
+      indices.ID === undefined ||
+      indices.DESTINATARIO === undefined ||
+      indices.TIPO === undefined ||
+      indices.MENSAGEM === undefined ||
+      indices.LIDA === undefined ||
+      indices.DATA === undefined ||
+      indices.REFERENCIA === undefined
+    ) {
+      const id = Utilities.getUuid();
+      sheet.appendRow([
+        id,
+        destinatario,
+        tipoNorm,
+        mensagemLimitada,
+        "N",
+        new Date(),
+        referenciaNorm
+      ]);
+      return id;
+    }
+    const id = Utilities.getUuid();
+    const linha = montarLinhaNotificacao(indices, {
+      ID: id,
+      DESTINATARIO: destinatario,
+      TIPO: tipoNorm,
+      MENSAGEM: mensagemLimitada,
+      LIDA: "N",
+      DATA: new Date(),
+      REFERENCIA: referenciaNorm
+    });
+    sheet.appendRow(linha);
+    return id;
+  } finally {
+    if (precisaLiberar) {
+      try { lock.releaseLock(); } catch (e) {}
+    }
+  }
+}
+
+function listarNotificacoes(email) {
+  try {
+    let emailAlvo = normalizarEmail(email);
+    const usuario = new AuthService().usuarioAtual();
+    if (!emailAlvo) {
+      emailAlvo = normalizarEmail(usuario.email || obterEmailSessaoAPI() || "");
+    }
+    if (!emailAlvo) {
+      throw new Error("E-mail n\u00e3o informado para listar notifica\u00e7\u00f5es.");
+    }
+    const ehProprio = usuario && normalizarEmail(usuario.email) === emailAlvo;
+    const ehGestorSistema = usuario && usuario.perfil === CONFIG.PERFIS.GESTOR_SISTEMA;
+    if (!ehProprio && !ehGestorSistema) {
+      emailAlvo = normalizarEmail(usuario.email || "");
+      if (!emailAlvo) throw new Error("Sem permiss\u00e3o para listar notifica\u00e7\u00f5es de outro usu\u00e1rio.");
+    }
+    const sheet = obterAbaNotificacoesAPI();
+    if (sheet.getLastRow() <= 1) {
+      return respostaSucesso([]);
+    }
+    const dados = sheet.getDataRange().getValues();
+    const indices = indicesNotificacao(dados[0] || []);
+    if (
+      indices.ID === undefined ||
+      indices.DESTINATARIO === undefined
+    ) {
+      return respostaSucesso([]);
+    }
+    const lista = [];
+    for (let i = 1; i < dados.length; i++) {
+      const row = dados[i];
+      const dest = indices.DESTINATARIO !== undefined ? normalizarEmail(row[indices.DESTINATARIO]) : "";
+      if (dest !== emailAlvo) continue;
+      lista.push({
+        id: indices.ID !== undefined ? textoSeguro(row[indices.ID]) : "",
+        destinatarioEmail: dest,
+        tipo: indices.TIPO !== undefined ? textoSeguro(row[indices.TIPO]) : "",
+        mensagem: indices.MENSAGEM !== undefined ? String(row[indices.MENSAGEM] || "") : "",
+        lida: indices.LIDA !== undefined ? String(row[indices.LIDA] || "").trim().toUpperCase() === "S" : false,
+        lidaRaw: indices.LIDA !== undefined ? String(row[indices.LIDA] || "").trim().toUpperCase() : "N",
+        data: indices.DATA !== undefined ? row[indices.DATA] : null,
+        referenciaID: indices.REFERENCIA !== undefined ? textoSeguro(row[indices.REFERENCIA]) : ""
+      });
+    }
+    lista.sort((a, b) => {
+      const da = a.data instanceof Date ? a.data.getTime() : new Date(a.data).getTime() || 0;
+      const db = b.data instanceof Date ? b.data.getTime() : new Date(b.data).getTime() || 0;
+      return db - da;
+    });
+    const serializado = lista.map(item => ({
+      id: item.id,
+      destinatarioEmail: item.destinatarioEmail,
+      tipo: item.tipo,
+      mensagem: item.mensagem,
+      lida: item.lida,
+      data: item.data instanceof Date ? item.data.toISOString() : (item.data ? String(item.data) : ""),
+      referenciaID: item.referenciaID
+    }));
+    return respostaSucesso(serializado);
+  } catch (erro) {
+    registrarErroAPI("LISTAR_NOTIFICACOES", erro);
+    return respostaErro(erro);
+  }
+}
+
+function marcarNotificacaoLida(id) {
+  const lock = LockService.getScriptLock();
+  let precisaLiberar = false;
+  try {
+    if (!lock.hasLock()) {
+      lock.waitLock(30000);
+      precisaLiberar = true;
+    }
+    const idBusca = textoSeguro(id);
+    if (!idBusca) throw new Error("ID da notifica\u00e7\u00e3o \u00e9 obrigat\u00f3rio.");
+    const usuario = new AuthService().usuarioAtual();
+    const emailSessao = normalizarEmail(usuario.email || obterEmailSessaoAPI() || "");
+    if (!emailSessao) throw new Error("\u00c9 necess\u00e1rio estar autenticado.");
+    const sheet = obterAbaNotificacoesAPI();
+    if (sheet.getLastRow() <= 1) throw new Error("Nenhuma notifica\u00e7\u00e3o encontrada.");
+    const dados = sheet.getDataRange().getValues();
+    const indices = indicesNotificacao(dados[0] || []);
+    if (indices.ID === undefined || indices.DESTINATARIO === undefined || indices.LIDA === undefined) {
+      throw new Error("Aba NOTIFICACOES sem cabe\u00e7alhos esperados.");
+    }
+    for (let i = 1; i < dados.length; i++) {
+      if (textoSeguro(dados[i][indices.ID]) === idBusca) {
+        const dest = normalizarEmail(dados[i][indices.DESTINATARIO]);
+        const ehDono = dest === emailSessao;
+        const ehGestor = usuario.perfil === CONFIG.PERFIS.GESTOR_SISTEMA;
+        if (!ehDono && !ehGestor) {
+          throw new Error("Sem permiss\u00e3o para marcar esta notifica\u00e7\u00e3o.");
+        }
+        sheet.getRange(i + 1, indices.LIDA + 1).setValue("S");
+        SpreadsheetApp.flush();
+        return respostaSucesso(true);
+      }
+    }
+    throw new Error("Notifica\u00e7\u00e3o n\u00e3o encontrada.");
+  } catch (erro) {
+    registrarErroAPI("MARCAR_NOTIFICACAO_LIDA", erro);
+    return respostaErro(erro);
+  } finally {
+    if (precisaLiberar) { try { lock.releaseLock(); } catch(e){} }
+  }
+}
+
+function marcarTodasLidas(email, authDados) {
+  const lock = LockService.getScriptLock();
+  let precisaLiberar = false;
+  try {
+    if (!lock.hasLock()) {
+      lock.waitLock(30000);
+      precisaLiberar = true;
+    }
+    let emailAlvo = normalizarEmail(email);
+    let usuario = new AuthService().usuarioAtual();
+    let emailSessao = normalizarEmail(usuario.email || "");
+    if ((!usuario.logado || !emailSessao) && authDados && typeof authDados === "object") {
+      try {
+        const emailAuth = normalizarEmail(valorObjeto(authDados, "email", "EMAIL") || "");
+        const senhaAuth = textoSeguro(valorObjeto(authDados, "senha", "SENHA", "password") || "");
+        if (emailAuth && senhaAuth) {
+          const resAuth = autenticarConsulta({ email: emailAuth, senha: senhaAuth });
+          if (resAuth && resAuth.sucesso === true && resAuth.dados) {
+            usuario = { email: resAuth.dados.email, nome: resAuth.dados.nome, perfil: resAuth.dados.perfil, logado: true, ativo: true, comarcas: resAuth.dados.comarcas || [] };
+            emailSessao = normalizarEmail(usuario.email || "");
+            if (!emailAlvo) emailAlvo = emailSessao;
+          }
+        }
+      } catch (eAuth2) {}
+    }
+    if (!emailAlvo) emailAlvo = normalizarEmail(usuario.email || obterEmailSessaoAPI() || emailSessao || "");
+    if (!emailAlvo) throw new Error("E-mail n\u00e3o informado.");
+    const ehProprio = normalizarEmail(usuario.email) === emailAlvo;
+    const ehGestor = usuario.perfil === CONFIG.PERFIS.GESTOR_SISTEMA;
+    if (!ehProprio && !ehGestor) {
+      let permitirProprio = false;
+      try {
+        const alvoInfo = new AuthService().buscarUsuario(emailAlvo);
+        if (alvoInfo && alvoInfo.ativo && alvoInfo.perfil === CONFIG.PERFIS.GESTOR_CONTEUDO) permitirProprio = true;
+      } catch (e) {}
+      if (!permitirProprio) emailAlvo = normalizarEmail(usuario.email || emailSessao || "");
+    }
+    const sheet = obterAbaNotificacoesAPI();
+    if (sheet.getLastRow() <= 1) return respostaSucesso({ alteradas: 0 });
+    const dados = sheet.getDataRange().getValues();
+    const indices = indicesNotificacao(dados[0] || []);
+    if (indices.DESTINATARIO === undefined || indices.LIDA === undefined) {
+      throw new Error("Aba NOTIFICACOES sem cabe\u00e7alhos esperados.");
+    }
+    let alteradas = 0;
+    for (let i = 1; i < dados.length; i++) {
+      const dest = normalizarEmail(dados[i][indices.DESTINATARIO]);
+      const lida = String(dados[i][indices.LIDA] || "").trim().toUpperCase();
+      if (dest === emailAlvo && lida !== "S") {
+        sheet.getRange(i + 1, indices.LIDA + 1).setValue("S");
+        alteradas++;
+      }
+    }
+    if (alteradas > 0) SpreadsheetApp.flush();
+    return respostaSucesso({ alteradas: alteradas });
+  } catch (erro) {
+    registrarErroAPI("MARCAR_TODAS_LIDAS", erro);
+    return respostaErro(erro);
+  } finally {
+    if (precisaLiberar) { try { lock.releaseLock(); } catch(e){} }
+  }
+}
+
+function contarNaoLidas(email, authDados) {
+  try {
+    let emailAlvo = normalizarEmail(email);
+    let usuario = new AuthService().usuarioAtual();
+    let emailSessao = normalizarEmail(usuario.email || "");
+    if ((!usuario.logado || !emailSessao) && authDados && typeof authDados === "object") {
+      try {
+        const emailAuth = normalizarEmail(valorObjeto(authDados, "email", "EMAIL") || "");
+        const senhaAuth = textoSeguro(valorObjeto(authDados, "senha", "SENHA", "password") || "");
+        if (emailAuth && senhaAuth) {
+          const resAuth = autenticarConsulta({ email: emailAuth, senha: senhaAuth });
+          if (resAuth && resAuth.sucesso === true && resAuth.dados) {
+            usuario = { email: resAuth.dados.email, nome: resAuth.dados.nome, perfil: resAuth.dados.perfil, logado: true, ativo: true, comarcas: resAuth.dados.comarcas || [] };
+            emailSessao = normalizarEmail(usuario.email || "");
+            if (!emailAlvo) emailAlvo = emailSessao;
+          }
+        }
+      } catch (eAuth3) {}
+    }
+    if (!emailAlvo) emailAlvo = normalizarEmail(usuario.email || obterEmailSessaoAPI() || emailSessao || "");
+    if (!emailAlvo) return respostaSucesso({ total: 0, count: 0 });
+    const ehProprio = normalizarEmail(usuario.email) === emailAlvo;
+    const ehGestor = usuario.perfil === CONFIG.PERFIS.GESTOR_SISTEMA;
+    if (!ehProprio && !ehGestor) {
+      let permitirProprio = false;
+      try {
+        const alvoInfo = new AuthService().buscarUsuario(emailAlvo);
+        if (alvoInfo && alvoInfo.ativo && alvoInfo.perfil === CONFIG.PERFIS.GESTOR_CONTEUDO) permitirProprio = true;
+      } catch (e) {}
+      if (!permitirProprio) emailAlvo = normalizarEmail(usuario.email || emailSessao || "");
+    }
+    const sheet = obterAbaNotificacoesAPI();
+    if (sheet.getLastRow() <= 1) return respostaSucesso({ total: 0, count: 0 });
+    const dados = sheet.getDataRange().getValues();
+    const indices = indicesNotificacao(dados[0] || []);
+    if (indices.DESTINATARIO === undefined || indices.LIDA === undefined) {
+      return respostaSucesso({ total: 0, count: 0 });
+    }
+    let total = 0;
+    for (let i = 1; i < dados.length; i++) {
+      const dest = normalizarEmail(dados[i][indices.DESTINATARIO]);
+      const lida = String(dados[i][indices.LIDA] || "").trim().toUpperCase();
+      if (dest === emailAlvo && lida !== "S") total++;
+    }
+    return respostaSucesso({ total: total, count: total });
+  } catch (erro) {
+    registrarErroAPI("CONTAR_NAO_LIDAS", erro);
+    return respostaErro(erro);
+  }
+}
+
+function notificarGestoresSistemaSobreSolicitacao(tipo, mensagem, referenciaID) {
+  try {
+    const gestores = obterEmailsGestoresSistema();
+    let count = 0;
+    gestores.forEach(emailG => {
+      try {
+        criarNotificacao(emailG, tipo, mensagem, referenciaID);
+        count++;
+      } catch (e) {}
+    });
+    return count;
+  } catch (e) {
+    registrarErroAPI("NOTIFICAR_GESTORES", e);
+    return 0;
+  }
+}
+
+function notificarUsuarioSobreDecisao(emailUsuario, aprovado, perfil, referenciaID) {
+  try {
+    const tipo = aprovado ? "SOLICITACAO_APROVADA" : "SOLICITACAO_REJEITADA";
+    const msg = aprovado
+      ? "Sua solicita\u00e7\u00e3o de acesso como " + perfil + " foi aprovada. Voc\u00ea j\u00e1 pode acessar o sistema."
+      : "Sua solicita\u00e7\u00e3o de acesso como " + perfil + " foi rejeitada. Entre em contato com o Gestor do Sistema para mais detalhes.";
+    return criarNotificacao(emailUsuario, tipo, msg, referenciaID);
+  } catch (e) {
+    registrarErroAPI("NOTIFICAR_DECISAO_USUARIO", e);
+    return null;
+  }
+}
+
 
 function obterPlanilhaAPI() {
   return DB.getSpreadsheet();
@@ -2812,6 +3323,13 @@ function solicitarPermissaoComarca(comarca, authDados) {
       }
     });
 
+    try{
+      const msgComarca = (textoSeguro(usuario.nome) || usuario.email) + " solicitou acesso \u00e0 comarca \"" + comarcaAlvo + "\".";
+      destinatarios.forEach(function(emailG){
+        try{ criarNotificacao(emailG, "SOLICITACAO_COMARCA", msgComarca, idSolic); }catch(e){}
+      });
+    }catch(eNC){ try{ registrarErroAPI("NOTIFICAR_SOLICITACAO_COMARCA", eNC); }catch(e){} }
+
     registrarLog(
       "SOLICITAR_ACESSO_COMARCA " +
       textoSeguro(usuario.email) +
@@ -2981,6 +3499,14 @@ function cancelarSolicitacaoComarca(comarca, authDados) {
 
     // Remove a linha pendente (Gestor do Sistema não verá mais)
     sheetSolic2.deleteRow(linhaAlvo);
+
+    try{
+      const gestoresCancel = obterEmailsGestoresSistema();
+      const msgCancel = (textoSeguro(usuario.nome) || usuario.email) + " cancelou a solicita\u00e7\u00e3o de acesso \u00e0 comarca \"" + comarcaAlvo2 + "\".";
+      gestoresCancel.forEach(function(emailG){
+        try{ criarNotificacao(emailG, "CANCELAMENTO", msgCancel, idAlvo || comarcaAlvo2); }catch(e){}
+      });
+    }catch(eCancNotif){ try{ registrarErroAPI("NOTIFICAR_CANCELAMENTO", eCancNotif); }catch(e){} }
 
     registrarLog(
       "CANCELAR_SOLICITACAO_COMARCA " +
@@ -3232,6 +3758,7 @@ function atualizarUsuario(email, dados) {
         try {
           const novaSenha = gerarSenha20();
           sheet.getRange(linhaEncontrada, idxSenha).setValue(novaSenha);
+          try{ const emailAlvo2 = normalizarEmail(emailAlvo); if(emailValidoAPI(emailAlvo2)) criarNotificacao(emailAlvo2, "SENHA_GERADA", "Sua senha de acesso foi (re)gerada pelo Gestor do Sistema e enviada por e-mail.", emailAlvo2); }catch(eN){ try{ registrarErroAPI("NOTIFICAR_SENHA_ATUALIZAR", eN); }catch(e){} }
         } catch (eNovaSenha) {}
       }
     }
@@ -3388,6 +3915,10 @@ function criarUsuario(dados) {
 
     sheet.appendRow(novaLinha);
     SpreadsheetApp.flush();
+
+    try{
+      criarNotificacao(email, "SENHA_GERADA", "Sua senha de acesso ao Sistema de Telefones foi gerada e enviada por e-mail. Guarde-a em local seguro.", email);
+    }catch(eNotifSenha){ try{ registrarErroAPI("NOTIFICAR_SENHA_GERADA", eNotifSenha); }catch(e){} }
 
     // Envia senha ao novo usuário por e-mail (fila) — também visível ao Gestor na resposta
     try{

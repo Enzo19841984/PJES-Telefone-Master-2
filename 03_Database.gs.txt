@@ -175,6 +175,75 @@ class Database {
     return this.getSheet(CONFIG.SHEETS.LOG);
   }
 
+  notificacoes() {
+    return this.getSheet(CONFIG.SHEETS.NOTIFICACOES);
+  }
+
+  // v3.34 — modelo normalizado (MUNICIPIOS/UNIDADES/SETORES/CONTATOS)
+  municipios() {
+    return this.getSheet(CONFIG.SHEETS.MUNICIPIOS);
+  }
+
+  municipiosOuNulo() {
+    try { return this.getSpreadsheet().getSheetByName(CONFIG.SHEETS.MUNICIPIOS); } catch(e){ return null; }
+  }
+
+  unidades() {
+    return this.getSheet(CONFIG.SHEETS.UNIDADES);
+  }
+
+  unidadesOuNulo() {
+    try { return this.getSpreadsheet().getSheetByName(CONFIG.SHEETS.UNIDADES); } catch(e){ return null; }
+  }
+
+  setores() {
+    return this.getSheet(CONFIG.SHEETS.SETORES);
+  }
+
+  setoresOuNulo() {
+    try { return this.getSpreadsheet().getSheetByName(CONFIG.SHEETS.SETORES); } catch(e){ return null; }
+  }
+
+  contatos() {
+    return this.getSheet(CONFIG.SHEETS.CONTATOS);
+  }
+
+  contatosOuNulo() {
+    try { return this.getSpreadsheet().getSheetByName(CONFIG.SHEETS.CONTATOS); } catch(e){ return null; }
+  }
+
+  acessosUnidades() {
+    return this.getSheet(CONFIG.SHEETS.ACESSOS_UNIDADES);
+  }
+
+  acessosUnidadesOuNulo() {
+    try { return this.getSpreadsheet().getSheetByName(CONFIG.SHEETS.ACESSOS_UNIDADES); } catch(e){ return null; }
+  }
+
+  telefonesUteis() {
+    return this.getSheet(CONFIG.SHEETS.TELEFONES_UTEIS);
+  }
+
+  telefonesUteisOuNulo() {
+    try { return this.getSpreadsheet().getSheetByName(CONFIG.SHEETS.TELEFONES_UTEIS); } catch(e){ return null; }
+  }
+
+  // Compat: se planilha nova existe, telefones() pode ser virtual — mas mantém flat legado quando existir
+  temModeloNormalizado() {
+    try {
+      const ss = this.getSpreadsheet();
+      return !!(ss.getSheetByName(CONFIG.SHEETS.CONTATOS) && ss.getSheetByName(CONFIG.SHEETS.SETORES) && ss.getSheetByName(CONFIG.SHEETS.UNIDADES) && ss.getSheetByName(CONFIG.SHEETS.MUNICIPIOS));
+    } catch(e){ return false; }
+  }
+
+  notificacoesOuNulo() {
+    try {
+      return this.getSpreadsheet().getSheetByName(CONFIG.SHEETS.NOTIFICACOES);
+    } catch (erro) {
+      return null;
+    }
+  }
+
   headers(sheet) {
     if (!sheet) {
       throw new Error("Planilha não informada.");

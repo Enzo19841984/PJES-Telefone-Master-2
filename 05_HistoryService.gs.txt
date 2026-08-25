@@ -236,6 +236,29 @@ class HistoryService {
   }
 
   /**
+   * v3.32: Lista histórico filtrado por comarcas permitidas (Gestor Conteúdo).
+   * Se comarcasPermitidas for null ou vazio, retorna todo o histórico.
+   */
+  listarFiltradoPorComarcas(comarcasPermitidas) {
+    const todos = this.listarTodos();
+    if (!Array.isArray(comarcasPermitidas) || comarcasPermitidas.length === 0) {
+      if (comarcasPermitidas === null) return todos;
+      return todos;
+    }
+    const permitidas = comarcasPermitidas.map(c => normalizarChave(c));
+    return todos.filter(item => {
+      try {
+        const antes = this.parseJSON(item.antes);
+        const depois = this.parseJSON(item.depois);
+        const snapshot = (depois && Object.keys(depois).length) ? depois : antes;
+        const comarca = String((snapshot && (snapshot.comarca || snapshot.COMARCA)) || "").trim();
+        if (!comarca) return true;
+        return permitidas.includes(normalizarChave(comarca));
+      } catch (e) { return true; }
+    });
+  }
+
+  /**
    * Converte uma linha da planilha em objeto.
    */
   linhaParaObjeto(linha) {
