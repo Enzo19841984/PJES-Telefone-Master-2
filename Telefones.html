@@ -58,7 +58,7 @@ Arquivo: Telefones.html
           "
         >Microrregião</label>
 
-        <select id="filtro-microrregiao" onchange="aplicarFiltros()">
+        <select id="filtro-microrregiao" onchange="try{ if(typeof atualizarFiltroSetorPorMicrorregiaoComarca==='function') atualizarFiltroSetorPorMicrorregiaoComarca(); }catch(e){} aplicarFiltros()">
           <option value="">Todas as microrregiões</option>
         </select>
       </div>
@@ -74,7 +74,7 @@ Arquivo: Telefones.html
           "
         >Comarca</label>
 
-        <select id="filtro-comarca" onchange="aplicarFiltros()">
+        <select id="filtro-comarca" onchange="try{ if(typeof atualizarFiltroSetorPorMicrorregiaoComarca==='function') atualizarFiltroSetorPorMicrorregiaoComarca(); }catch(e){} aplicarFiltros()">
           <option value="">Todas as comarcas</option>
         </select>
       </div>

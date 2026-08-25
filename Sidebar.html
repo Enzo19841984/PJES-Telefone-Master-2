@@ -13,12 +13,12 @@ Arquivo: Sidebar.html
     </div>
 
     <nav class="sidebar-menu">
-      <button type="button" id="menu-dashboard" class="menu-item active" onclick="mostrarView('dashboard-view')">
+      <button type="button" id="menu-dashboard" class="menu-item" onclick="mostrarView('dashboard-view')">
         <span class="icon">🏠</span>
         <span>Dashboard</span>
       </button>
 
-      <button type="button" id="menu-telefones" class="menu-item" onclick="navegarParaTelefones()">
+      <button type="button" id="menu-telefones" class="menu-item active" onclick="navegarParaTelefones()">
         <span class="icon">☎</span>
         <span>Telefones</span>
       </button>
@@ -36,7 +36,10 @@ Arquivo: Sidebar.html
       <button type="button" id="menu-solicitacoes" class="menu-item hidden" onclick="mostrarView('solicitacoes-view')">
         <span class="icon">👥</span>
         <span>Solicitações de Acesso</span>
+        <span id="badge-solicitacoes" class="badge hidden">0</span>
       </button>
+
+      <button type="button" id="menu-notificacoes" class="menu-item hidden" onclick="mostrarView('notificacoes-view')"><span class="icon">🔔</span><span>Notificações</span><span id="badge-notificacoes" class="badge hidden">0</span></button>
 
       <button type="button" id="menu-usuarios" class="menu-item hidden" onclick="mostrarView('usuarios-view')">
         <span class="icon">🧑‍💼</span>
@@ -101,7 +104,7 @@ function atualizarVersaoSidebar() {
 
   var versao =
     (typeof window.SISTEMA_VERSAO !== "undefined" && window.SISTEMA_VERSAO) ||
-    "3.24";
+    "3.34";
 
   elemento.textContent = String(versao);
 }

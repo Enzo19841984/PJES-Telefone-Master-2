@@ -123,7 +123,13 @@ function fazerLoginConsulta(){
         try{ atualizarInterfaceUsuario(); }catch(e){}
         exibirMensagemLogin("Login realizado! Bem-vindo, " + (resp.dados.nome||"") + ".", "success");
         if(typeof mostrarToast==="function") mostrarToast("Login realizado!", "success");
-        setTimeout(function(){ try{ var p=(resp.dados.perfil||"").toUpperCase(); mostrarView(p==="GESTOR_SISTEMA" || p==="GESTOR_CONTEUDO" ? 'telefones-view' : 'consulta-telefones-view'); }catch(e){} }, 600);
+        // v3.32: sempre que fizer login a aba Telefones deve ser recarregada
+        try{ if(typeof recarregarTelefonesAposLogin==="function") recarregarTelefonesAposLogin(); else if(typeof carregarTelefones==="function") carregarTelefones(); }catch(eRL){}
+        try{ if(typeof sincronizarSolicitacoesPendentes==="function") setTimeout(sincronizarSolicitacoesPendentes, 350); }catch(e){}
+        try{ if(typeof sincronizarSolicitacoesPendentesDashboard==="function") setTimeout(sincronizarSolicitacoesPendentesDashboard, 350); }catch(e){}
+        try{ if(typeof renderizarMapaConsulta==="function") setTimeout(function(){ try{ renderizarMapaConsulta(); }catch(e){} }, 600); }catch(e){}
+        try{ if(typeof tentarInicializarMapa==="function") setTimeout(function(){ try{ tentarInicializarMapa(); }catch(e){} }, 700); }catch(e){}
+        setTimeout(function(){ try{ var p=(resp.dados.perfil||"").toUpperCase(); mostrarView('consulta-telefones-view'); /* v3.33 GS e GC usam mapa */ }catch(e){} }, 600);
       } else {
         var msg = (resp&&resp.erro)||"E-mail ou senha incorretos.";
         var isPending = String(msg).indexOf("Acesso em andamento")!==-1;

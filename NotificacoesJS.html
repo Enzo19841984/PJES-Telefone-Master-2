@@ -1,0 +1,237 @@
+<script>
+/**
+ * ==========================================================
+ * SISTEMA DE TELEFONES TJES
+ * Arquivo: NotificacoesJS.html v3.32 - permissão próprio usuário
+ * ==========================================================
+ * v3.32: Gestor Conteúdo lista apenas próprias notificações;
+ *        sem permissão não exibe erro "outro usuário", mas
+ *        mensagem "Não há notificações não lidas".
+ */
+
+function tipoNotificacaoIcone(tipo){
+  const t = String(tipo||"").toUpperCase();
+  switch(t){
+    case "LOGIN": return "\uD83D\uDD10";
+    case "SENHA_GERADA": return "\uD83D\uDD11";
+    case "SOLICITACAO_PERFIL": return "\uD83D\uDC64";
+    case "SOLICITACAO_COMARCA": return "\uD83C\uDFDB\uFE0F";
+    case "SOLICITACAO_APROVADA": return "\u2705";
+    case "SOLICITACAO_REJEITADA": return "\u274C";
+    case "CANCELAMENTO": return "\u21A9\uFE0F";
+    default: return "\uD83D\uDD14";
+  }
+}
+
+function tipoNotificacaoRotulo(tipo){
+  const t = String(tipo||"").toUpperCase();
+  switch(t){
+    case "LOGIN": return "Login";
+    case "SENHA_GERADA": return "Senha gerada";
+    case "SOLICITACAO_PERFIL": return "Solicita\u00e7\u00e3o de perfil";
+    case "SOLICITACAO_COMARCA": return "Solicita\u00e7\u00e3o de comarca";
+    case "SOLICITACAO_APROVADA": return "Aprovada";
+    case "SOLICITACAO_REJEITADA": return "Rejeitada";
+    case "CANCELAMENTO": return "Cancelamento";
+    default: return t || "Notifica\u00e7\u00e3o";
+  }
+}
+
+function formatarDataNotificacao(valor){
+  if(!valor) return "";
+  try{
+    const d = valor instanceof Date ? valor : new Date(valor);
+    if(isNaN(d.getTime())) return String(valor);
+    return d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  }catch(e){ return String(valor); }
+}
+
+function carregarNotificacoes(){
+  const listaEl = document.getElementById("notificacoes-lista");
+  const btnTodas = document.getElementById("btn-marcar-todas-lidas");
+  if(listaEl){
+    listaEl.innerHTML = '<div class="notificacoes-vazio">Carregando notifica\u00e7\u00f5es...</div>';
+  }
+  if(typeof API === "undefined" || typeof API.listarNotificacoes !== "function"){
+    if(listaEl) listaEl.innerHTML = '<div class="notificacoes-vazio" style="color:#dc2626;">Servi\u00e7o de notifica\u00e7\u00f5es indispon\u00edvel.</div>';
+    return;
+  }
+  const email = (typeof usuarioAtual !== "undefined" && usuarioAtual.email) ? usuarioAtual.email : "";
+  API.listarNotificacoes(email,
+    function(resposta){
+      if(!resposta || resposta.sucesso !== true){
+        const msgRaw = resposta && resposta.erro ? String(resposta.erro) : "";
+        const msgLower = msgRaw.toLowerCase();
+        // v3.32: GC sem permissão para outro usuário -> trata como vazio (próprio)
+        const ehPermissaoOutro = msgLower.indexOf("outro usu") !== -1 || msgLower.indexOf("sem permiss") !== -1;
+        if(ehPermissaoOutro){
+          renderizarNotificacoes([]);
+          if(btnTodas) btnTodas.style.display = "none";
+          return;
+        }
+        const msg = msgRaw || "Erro ao carregar notifica\u00e7\u00f5es.";
+        if(listaEl) listaEl.innerHTML = '<div class="notificacoes-vazio" style="color:#dc2626;">' + escaparHtmlNotificacoes(msg) + '</div>';
+        return;
+      }
+      const dados = Array.isArray(resposta.dados) ? resposta.dados : [];
+      // v3.32: sem notificações -> mensagem amigável
+      if(dados.length === 0){
+        renderizarNotificacoes([]);
+        return;
+      }
+      renderizarNotificacoes(dados);
+      try{ atualizarBadgeNotificacoes(); }catch(e){}
+      if(btnTodas){
+        const temNaoLida = dados.some(item => !item.lida);
+        btnTodas.style.display = temNaoLida ? "" : "none";
+      }
+    },
+    function(erro){
+      const msg = erro && erro.message ? erro.message : "Falha de conex\u00e3o com o servidor.";
+      const msgLower = String(msg).toLowerCase();
+      const ehPermissaoOutro = msgLower.indexOf("outro usu") !== -1 || msgLower.indexOf("sem permiss") !== -1;
+      if(ehPermissaoOutro){
+        renderizarNotificacoes([]);
+        if(btnTodas) btnTodas.style.display = "none";
+        return;
+      }
+      if(listaEl) listaEl.innerHTML = '<div class="notificacoes-vazio" style="color:#dc2626;">' + escaparHtmlNotificacoes(msg) + '</div>';
+    }
+  );
+}
+
+function escaparHtmlNotificacoes(valor){
+  return String(valor||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+function renderizarNotificacoes(lista){
+  const container = document.getElementById("notificacoes-lista");
+  if(!container) return;
+  container.innerHTML = "";
+  const dados = Array.isArray(lista) ? lista : [];
+  if(dados.length === 0){
+    container.innerHTML = '<div class="notificacoes-vazio">N\u00e3o h\u00e1 notifica\u00e7\u00f5es n\u00e3o lidas.</div>';
+    return;
+  }
+  dados.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "notificacao-card " + (item.lida ? "lida" : "nao-lida");
+    const icone = document.createElement("div");
+    icone.className = "notificacao-icone";
+    icone.textContent = tipoNotificacaoIcone(item.tipo);
+    const conteudo = document.createElement("div");
+    conteudo.className = "notificacao-conteudo";
+    const tipoEl = document.createElement("span");
+    tipoEl.className = "notificacao-tipo";
+    tipoEl.textContent = tipoNotificacaoRotulo(item.tipo);
+    const msgEl = document.createElement("div");
+    msgEl.className = "notificacao-mensagem";
+    msgEl.textContent = String(item.mensagem||"");
+    const dataEl = document.createElement("div");
+    dataEl.className = "notificacao-data";
+    dataEl.textContent = formatarDataNotificacao(item.data);
+    if(item.referenciaID){
+      const ref = document.createElement("div");
+      ref.className = "notificacao-data";
+      ref.style.color = "#64748b";
+      ref.textContent = "Ref: " + String(item.referenciaID).slice(0, 12);
+      dataEl.appendChild(document.createTextNode(" \u00b7 "));
+      dataEl.appendChild(ref);
+    }
+    conteudo.appendChild(tipoEl);
+    conteudo.appendChild(msgEl);
+    conteudo.appendChild(dataEl);
+    const acoes = document.createElement("div");
+    acoes.className = "notificacao-acoes";
+    if(!item.lida){
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-secondary";
+      btn.style.padding = "6px 10px";
+      btn.style.fontSize = "12px";
+      btn.textContent = "Marcar como lida";
+      btn.addEventListener("click", function(){
+        marcarNotificacaoComoLida(item.id, btn);
+      });
+      acoes.appendChild(btn);
+    } else {
+      const selo = document.createElement("span");
+      selo.style.fontSize = "11px";
+      selo.style.color = "#94a3b8";
+      selo.textContent = "\u2713 Lida";
+      acoes.appendChild(selo);
+    }
+    card.appendChild(icone);
+    card.appendChild(conteudo);
+    card.appendChild(acoes);
+    container.appendChild(card);
+  });
+}
+
+function marcarNotificacaoComoLida(id, botao){
+  if(!id) return;
+  if(botao){ botao.disabled = true; botao.textContent = "Marcando..."; }
+  if(typeof API === "undefined" || typeof API.marcarNotificacaoLida !== "function"){
+    if(typeof mostrarToast === "function") mostrarToast("Servi\u00e7o indispon\u00edvel.", "error");
+    if(botao){ botao.disabled = false; botao.textContent = "Marcar como lida"; }
+    return;
+  }
+  API.marcarNotificacaoLida(id,
+    function(resposta){
+      if(!resposta || resposta.sucesso !== true){
+        const msg = resposta && resposta.erro ? resposta.erro : "Erro ao marcar notifica\u00e7\u00e3o.";
+        if(typeof mostrarToast === "function") mostrarToast(msg, "error");
+        if(botao){ botao.disabled = false; botao.textContent = "Marcar como lida"; }
+        return;
+      }
+      if(typeof mostrarToast === "function") mostrarToast("Notifica\u00e7\u00e3o marcada como lida.", "success");
+      carregarNotificacoes();
+      try{ atualizarBadgeNotificacoes(); }catch(e){}
+    },
+    function(erro){
+      const msg = erro && erro.message ? erro.message : "Falha de conex\u00e3o.";
+      if(typeof mostrarToast === "function") mostrarToast(msg, "error");
+      if(botao){ botao.disabled = false; botao.textContent = "Marcar como lida"; }
+    }
+  );
+}
+
+function marcarTodasNotificacoesLidas(){
+  const btn = document.getElementById("btn-marcar-todas-lidas");
+  if(btn){ btn.disabled = true; btn.textContent = "Marcando..."; }
+  if(typeof API === "undefined" || typeof API.marcarTodasLidas !== "function"){
+    if(typeof mostrarToast === "function") mostrarToast("Servi\u00e7o indispon\u00edvel.", "error");
+    if(btn){ btn.disabled = false; btn.textContent = "\u2713 Marcar todas como lidas"; }
+    return;
+  }
+  const email = (typeof usuarioAtual !== "undefined" && usuarioAtual.email) ? usuarioAtual.email : "";
+  API.marcarTodasLidas(email,
+    function(resposta){
+      if(btn){ btn.disabled = false; btn.textContent = "\u2713 Marcar todas como lidas"; btn.style.display = "none"; }
+      if(!resposta || resposta.sucesso !== true){
+        const msg = resposta && resposta.erro ? resposta.erro : "Erro ao marcar todas como lidas.";
+        if(typeof mostrarToast === "function") mostrarToast(msg, "error");
+        return;
+      }
+      const qtd = resposta.dados && (resposta.dados.alteradas || resposta.dados.total) ? (resposta.dados.alteradas||0) : 0;
+      if(typeof mostrarToast === "function") mostrarToast(qtd ? (qtd + " notifica\u00e7\u00f5es marcadas como lidas.") : "Nenhuma pendente.", "success");
+      carregarNotificacoes();
+      try{ atualizarBadgeNotificacoes(); }catch(e){}
+    },
+    function(erro){
+      if(btn){ btn.disabled = false; btn.textContent = "\u2713 Marcar todas como lidas"; }
+      const msg = erro && erro.message ? erro.message : "Falha de conex\u00e3o.";
+      if(typeof mostrarToast === "function") mostrarToast(msg, "error");
+    }
+  );
+}
+
+function navegarParaNotificacoes(){
+  if(typeof mostrarView === "function") mostrarView("notificacoes-view");
+  else {
+    const el = document.getElementById("notificacoes-view");
+    if(el) el.classList.remove("hidden");
+  }
+  carregarNotificacoes();
+}
+</script>

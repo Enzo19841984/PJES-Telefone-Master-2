@@ -135,6 +135,8 @@ function iniciarSistema() {
           };
 
           atualizarInterfaceUsuario();
+          // v3.32: garante recarregar Telefones quando comarcas chegam async apos login Google
+          try{ if(typeof recarregarTelefonesAposLogin==="function" && dados && dados.perfil){ var _p=dados.perfil; if(_p==="GESTOR_CONTEUDO"||_p==="GESTOR_SISTEMA") setTimeout(function(){ try{ recarregarTelefonesAposLogin(); }catch(e){} }, 800); } }catch(e){}
 
           /*
            * As comarcas chegam de forma assíncrona:
@@ -182,6 +184,21 @@ function iniciarSistema() {
       function() {}
     );
   }
+  // v3.32: Telefones como aba inicial do Sistema
+  try {
+    setTimeout(function(){
+      try{
+        if (typeof navegarParaTelefones === "function") {
+          navegarParaTelefones();
+        } else if (typeof mostrarView === "function") {
+          var _p = (typeof usuarioAtual !== "undefined" && usuarioAtual) ? String(usuarioAtual.perfil || "") : "";
+          var _log = !!(typeof usuarioAtual !== "undefined" && usuarioAtual && usuarioAtual.logado === true);
+          var _isGS = _log && _p === "GESTOR_SISTEMA";
+          mostrarView("consulta-telefones-view"); // v3.33 GS usa mapa como GC/visitante
+        }
+      }catch(eInitTel){}
+    }, 90);
+  } catch(eInit){}
 }
 
 /**
@@ -394,7 +411,7 @@ function atualizarInterfaceUsuario() {
         textoAcesso,
         ehInstitucional
           ? {
-              texto: "Login",
+              texto: "Acesso Administrativo",
               fundo: "#dbeafe",
               borda: "#93c5fd",
               cor: "#1e40af",
@@ -417,7 +434,7 @@ function atualizarInterfaceUsuario() {
         btnAcesso,
         textoAcesso,
         {
-          texto: "Login",
+          texto: "Acesso Administrativo",
           fundo: "#dbeafe",
           borda: "#93c5fd",
           cor: "#1e40af",
@@ -486,6 +503,31 @@ function atualizarInterfaceUsuario() {
       "hidden",
       !ehGestorSistema
     );
+    if (ehGestorSistema) {
+      try { atualizarBadgeSolicitacoes(); } catch(e){}
+      try { iniciarPollingSolicitacoes(); } catch(e){}
+    } else {
+      try { pararPollingSolicitacoes(); } catch(e){}
+    }
+  }
+
+  const menuNotificacoes =
+    document.getElementById(
+      "menu-notificacoes"
+    );
+
+  if (menuNotificacoes) {
+    const mostrarNotificacoes = ehGestorConteudo;
+    menuNotificacoes.classList.toggle(
+      "hidden",
+      !mostrarNotificacoes
+    );
+    if (mostrarNotificacoes) {
+      try { atualizarBadgeNotificacoes(); } catch(e){}
+      try { iniciarPollingNotificacoes(); } catch(e){}
+    } else {
+      try { pararPollingNotificacoes(); } catch(e){}
+    }
   }
 
   const menuAlteracoes =
@@ -494,8 +536,8 @@ function atualizarInterfaceUsuario() {
     );
 
   if (menuAlteracoes) {
-    // Registro de Alterações: visível para todos (inclui Usuário de Consulta)
-    menuAlteracoes.classList.remove("hidden");
+    // v3.32: Registro de Alterações oculto para Usuário de Consulta (visitante); GC/GS visível
+    menuAlteracoes.classList.toggle("hidden", ehVisitante);
   }
 
   const menuUsuarios =
@@ -586,13 +628,13 @@ function atualizarInterfaceUsuario() {
     var btnConsultaTodos = document.getElementById("btn-imprimir-consulta-todos");
     if (btnConsultaTodos) {
       // Visitante e Gestor de Conteúdo (mapa) podem imprimir todos os contatos; Gestor Sistema usa Imprimir/PDF da tabela
-      var podeImprimirConsulta = isConsulta && (ehVisitante || ehGestorConteudo);
+      var podeImprimirConsulta = isConsulta && (ehVisitante || ehGestorConteudo || ehGestorSistema); // v3.33 GS usa mapa
       btnConsultaTodos.style.display = podeImprimirConsulta ? "" : "none";
     }
     // Novo Contato no mapa para Gestor de Conteúdo
     var btnNovoNoConsulta = document.getElementById("btn-novo-telefone-consulta");
     if (btnNovoNoConsulta) {
-      btnNovoNoConsulta.style.display = (ehGestorConteudo && isConsulta) ? "" : "none";
+      btnNovoNoConsulta.style.display = ((ehGestorConteudo || ehGestorSistema) && isConsulta) ? "" : "none"; // v3.33 GS usa mapa
     }
     var btnUsuarios = document.getElementById("btn-imprimir-usuarios");
     if (btnUsuarios) {
@@ -607,8 +649,10 @@ function atualizarInterfaceUsuario() {
     var gSetor=document.getElementById("grupo-filtro-setor"); if(gSetor) gSetor.style.display = (ehGestorSistema && isTelefones) ? "" : "none";
   } catch(ePrint){}
 
-  if (
-    typeof listaTelefones !==
+  // v3.29: GC never renders tabela — evita hijack dashboard→consulta quando GC navega
+  try{
+    const _isGCNoRender = (typeof usuarioAtual!=="undefined" && usuarioAtual && usuarioAtual.logado===true && (String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_CONTEUDO" || String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_SISTEMA")); // v3.33 GS tambem usa mapa p/ Telefones
+    if(!_isGCNoRender && typeof listaTelefones !==
       "undefined" &&
     document.getElementById(
       "corpo-tabela-telefones"
@@ -620,6 +664,7 @@ function atualizarInterfaceUsuario() {
       listaTelefones
     );
   }
+  }catch(e){}
 }
 
 function configurarBotaoAcesso(
@@ -717,22 +762,202 @@ function fazerLogin() {
  * - Visitante -> aba de Consulta (mapa + lista somente leitura)
  */
 function navegarParaTelefones() {
-  if (typeof usuarioAtual !== "undefined" && usuarioAtual && usuarioAtual.logado === true && usuarioAtual.perfil === "GESTOR_CONTEUDO") {
-    mostrarView("consulta-telefones-view");
-    return;
-  }
+  // v3.33 GS usa mapa (consulta-telefones-view) com todas comarcas, igual GC mas sem restricao
+  try{
+    var _pNav = (typeof usuarioAtual!=="undefined" && usuarioAtual) ? String(usuarioAtual.perfil||"").toUpperCase() : "";
+    var _lNav = !!(typeof usuarioAtual!=="undefined" && usuarioAtual && usuarioAtual.logado===true);
+    if(_lNav && (_pNav==="GESTOR_SISTEMA" || _pNav==="GESTOR_CONTEUDO")){
+      mostrarView("consulta-telefones-view");
+      try{ if(typeof renderizarMapaConsulta==="function") setTimeout(function(){ try{ renderizarMapaConsulta(); }catch(e){} }, 80); }catch(e){}
+      try{ if(typeof tentarInicializarMapa==="function") setTimeout(function(){ try{ tentarInicializarMapa(); }catch(e){} }, 120); }catch(e){}
+      try{ if(typeof aoEntrarConsultaTelefonesView==="function") setTimeout(function(){ try{ aoEntrarConsultaTelefonesView(); }catch(e){} }, 160); }catch(e){}
+      return;
+    }
+  }catch(e){}
+  try{ if(typeof usuarioAtual!=="undefined" && usuarioAtual && usuarioAtual.logado===true && String(usuarioAtual.perfil).toUpperCase()==="USUARIO_CONSULTA"){ mostrarView("consulta-telefones-view"); return; } }catch(e2){}
   var ehGestor =
     typeof usuarioAtual !== "undefined" &&
     usuarioAtual &&
     usuarioAtual.logado === true &&
     usuarioAtual.perfil === "GESTOR_SISTEMA";
 
-  mostrarView(ehGestor ? "telefones-view" : "consulta-telefones-view");
+  // v3.33: mesmo GS cai no mapa; tabela fica acessivel via navegarParaTabelaTelefones() ou mostrarView("telefones-view") manual
+  if(ehGestor){
+    mostrarView("consulta-telefones-view");
+    try{ if(typeof renderizarMapaConsulta==="function") setTimeout(function(){ try{ renderizarMapaConsulta(); }catch(e){} }, 80); }catch(e){}
+    return;
+  }
+  mostrarView("consulta-telefones-view");
+}
+function navegarParaTabelaTelefones(){
+  // v3.33 helper: GS ainda pode ver tabela se quiser (acesso direto, sem hijack)
+  try{ window.__gsTabelaLiberada = true; }catch(e){}
+  try{ if(typeof mostrarView==="function") mostrarView("telefones-view"); }catch(e){}
+  try{ if(typeof carregarFiltros==="function") setTimeout(function(){ try{ carregarFiltros(); }catch(e){} }, 80); }catch(e){}
+  try{ if(typeof atualizarTabelaComFiltros==="function") setTimeout(function(){ try{ atualizarTabelaComFiltros(); }catch(e){} }, 120); else if(typeof renderizarTabela==="function" && typeof listaTelefones!=="undefined") setTimeout(function(){ try{ window.__gsTabelaLiberada=true; renderizarTabela(listaTelefones); }catch(e){} }, 120); }catch(e){}
+}
+let _pollingNotificacoesTimer = null;
+
+function atualizarBadgeNotificacoes(){
+  try{
+    const badge = document.getElementById("badge-notificacoes");
+    if(!badge) return;
+    const ehGestor = (usuarioAtual && usuarioAtual.logado === true && (usuarioAtual.perfil === "GESTOR_SISTEMA" || usuarioAtual.perfil === "GESTOR_CONTEUDO"));
+    if(!ehGestor){
+      badge.classList.add("hidden");
+      badge.textContent = "0";
+      return;
+    }
+    const email = (usuarioAtual && usuarioAtual.email) ? String(usuarioAtual.email).trim() : "";
+    if(!email){
+      badge.classList.add("hidden");
+      badge.textContent = "0";
+      return;
+    }
+    if(typeof API === "undefined" || typeof API.contarNaoLidas !== "function") return;
+    API.contarNaoLidas(email,
+      function(resposta){
+        try{
+          let total = 0;
+          if(resposta && resposta.sucesso === true && resposta.dados){
+            if(typeof resposta.dados.total === "number") total = resposta.dados.total;
+            else if(typeof resposta.dados.count === "number") total = resposta.dados.count;
+            else if(typeof resposta.dados === "number") total = resposta.dados;
+            else if(typeof resposta.dados.naoLidas === "number") total = resposta.dados.naoLidas;
+          }
+          if(total > 0){
+            badge.textContent = total > 99 ? "99+" : String(total);
+            badge.classList.remove("hidden");
+          } else {
+            badge.textContent = "0";
+            badge.classList.add("hidden");
+          }
+        }catch(e){}
+      },
+      function(){}
+    );
+  }catch(e){}
+}
+
+function iniciarPollingNotificacoes(){
+  try{
+    if(_pollingNotificacoesTimer) return;
+    atualizarBadgeNotificacoes();
+    _pollingNotificacoesTimer = setInterval(function(){ try{ atualizarBadgeNotificacoes(); }catch(e){} }, 30000);
+  }catch(e){}
+}
+
+function pararPollingNotificacoes(){
+  try{
+    if(_pollingNotificacoesTimer){
+      clearInterval(_pollingNotificacoesTimer);
+      _pollingNotificacoesTimer = null;
+    }
+  }catch(e){}
+}
+
+let _pollingSolicitacoesTimer = null;
+function atualizarBadgeSolicitacoes(){
+  try{
+    const badge = document.getElementById("badge-solicitacoes");
+    if(!badge) return;
+    const ehGS = (typeof usuarioAtual!=="undefined" && usuarioAtual && usuarioAtual.logado===true && String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_SISTEMA");
+    if(!ehGS){
+      badge.classList.add("hidden");
+      badge.textContent="0";
+      return;
+    }
+    if(typeof API==="undefined" || typeof API.contarSolicitacoesPendentes!=="function"){
+      // fallback: try listar and count
+      if(typeof API!=="undefined" && typeof API.listarSolicitacoes==="function"){
+        API.listarSolicitacoes(function(res){
+          try{
+            let total=0;
+            if(res && res.sucesso===true && Array.isArray(res.dados)) total=res.dados.filter(function(s){ return String(s.status||s.STATUS||"").toUpperCase()==="PENDENTE"; }).length;
+            else if(res && Array.isArray(res.dados)) total=res.dados.length;
+            if(total>0){ badge.textContent=total>99?"99+":String(total); badge.classList.remove("hidden"); } else { badge.textContent="0"; badge.classList.add("hidden"); }
+          }catch(e){}
+        }, function(){});
+      }
+      return;
+    }
+    API.contarSolicitacoesPendentes(function(res){
+      try{
+        let total=0;
+        if(res && res.sucesso===true && res.dados){
+          if(typeof res.dados.total==="number") total=res.dados.total;
+          else if(typeof res.dados.count==="number") total=res.dados.count;
+          else if(typeof res.dados==="number") total=res.dados;
+        }
+        if(total>0){ badge.textContent=total>99?"99+":String(total); badge.classList.remove("hidden"); } else { badge.textContent="0"; badge.classList.add("hidden"); }
+      }catch(e){}
+    }, function(){});
+  }catch(e){}
+}
+function iniciarPollingSolicitacoes(){
+  try{
+    if(_pollingSolicitacoesTimer) return;
+    atualizarBadgeSolicitacoes();
+    _pollingSolicitacoesTimer=setInterval(function(){ try{ atualizarBadgeSolicitacoes(); }catch(e){} }, 30000);
+  }catch(e){}
+}
+function pararPollingSolicitacoes(){
+  try{
+    if(_pollingSolicitacoesTimer){ clearInterval(_pollingSolicitacoesTimer); _pollingSolicitacoesTimer=null; }
+  }catch(e){}
+}
+
+function navegarParaNotificacoes(){
+  if(typeof mostrarView === "function") mostrarView("notificacoes-view");
+  try{ if(typeof carregarNotificacoes === "function") carregarNotificacoes(); }catch(e){}
+}
+
+// v3.32: helper centralizado para recarregar aba Telefones apos login (consulta ou Google)
+function recarregarTelefonesAposLogin(){
+  try{
+    if(typeof carregarTelefones==="function"){
+      carregarTelefones();
+    } else if(typeof iniciarConsultaTelefones==="function"){
+      iniciarConsultaTelefones();
+    }
+    try{ if(typeof renderizarMapaConsulta==="function") setTimeout(function(){ try{ renderizarMapaConsulta(); }catch(e){} }, 500); }catch(e){}
+    try{ if(typeof tentarInicializarMapa==="function") setTimeout(function(){ try{ tentarInicializarMapa(); }catch(e){} }, 700); }catch(e){}
+    try{ if(typeof sincronizarSolicitacoesPendentes==="function") setTimeout(sincronizarSolicitacoesPendentes, 350); }catch(e){}
+    try{ if(typeof sincronizarSolicitacoesPendentesDashboard==="function") setTimeout(sincronizarSolicitacoesPendentesDashboard, 350); }catch(e){}
+    try{ if(typeof atualizarDashboardPublico==="function" && typeof todosTelefones!=="undefined") setTimeout(function(){ try{ atualizarDashboardPublico(todosTelefones); }catch(e){} }, 650); }catch(e){}
+  }catch(e){ console.error("recarregarTelefonesAposLogin", e); }
+}
+
+function resetarTelefonesView(){
+  try{
+    // v3.30: reset Telefones para todos níveis ao sair/entrar
+    if(typeof filtroAtual!=="undefined"){
+      filtroAtual.texto=""; filtroAtual.microrregiao=""; filtroAtual.comarca=""; filtroAtual.tipo=""; filtroAtual.setor="";
+      var c1=document.getElementById("campo-pesquisa"); if(c1) c1.value="";
+      var c2=document.getElementById("filtro-microrregiao"); if(c2) c2.value="";
+      var c3=document.getElementById("filtro-comarca"); if(c3) c3.value="";
+      var c4=document.getElementById("filtro-setor"); if(c4) c4.value="";
+      var c5=document.getElementById("filtro-tipo"); if(c5) c5.value="";
+      if(typeof carregarFiltros==="function") try{ carregarFiltros(); }catch(e){}
+      if(typeof aplicarFiltros==="function") try{ aplicarFiltros(); }catch(e){}
+    }
+    // Consulta view reset
+    var cc=document.getElementById("campo-pesquisa-consulta");
+    if(cc) cc.value="";
+    if(typeof municipioSelecionado!=="undefined") municipioSelecionado="";
+    if(typeof microrregiaoSelecionada!=="undefined") microrregiaoSelecionada="";
+    // GC: ao reentrar, mostrar só permitidas via renderizarComarcas (que já filtra para GC)
+    // Para todos, limpar lista e estado colapsado
+    try{ if(typeof estadoColapsadoComarca!=="undefined") for(var k in estadoColapsadoComarca) delete estadoColapsadoComarca[k]; }catch(e){}
+    // If currently in telefones/consulta, re-render de forma limpa será feito por aoEntrarConsultaTelefonesView ou carregarFiltros
+  }catch(e){}
 }
 function aoEntrarConsultaTelefonesView(){
   try{
-    var isGC = typeof usuarioAtual!=="undefined" && usuarioAtual && String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_CONTEUDO";
-    if(!isGC) return;
+    var _perfAE = typeof usuarioAtual!=="undefined" && usuarioAtual ? String(usuarioAtual.perfil||"").toUpperCase() : "";
+    var isGC = _perfAE==="GESTOR_CONTEUDO";
+    var isGS = _perfAE==="GESTOR_SISTEMA";
+    if(!isGC && !isGS) return; // v3.33 GS tambem entra via mapa
     // If list empty or showing placeholder, render only allowed comarcas in ordemComarcas order
     var container = document.getElementById("consulta-lista");
     if(!container) return;
@@ -827,7 +1052,11 @@ function mostrarView(viewId) {
       viewId = "dashboard-view";
     }
 
-    // Registro de Alterações: liberado para todos (inclui Usuário de Consulta) — sem bloqueio
+    // v3.32: Registro de Alterações bloqueado para visitante; liberado para Gestor Conteúdo/Sistema
+    if (viewId === "registro-alteracoes-view" && ehVisitante) {
+      mostrarToast("Acesso restrito. Faça login como Gestor para ver o Registro de Alterações.", "warning");
+      viewId = "dashboard-view";
+    }
 
     // login/senha-gerada são públicas — quando já logado, redireciona ao dashboard
     if ((viewId === "login-view" || viewId === "senha-gerada-view") && logado) {
@@ -841,6 +1070,16 @@ function mostrarView(viewId) {
 
   } catch (e) {}
 
+  // v3.30: ao sair de Telefones, reset para próximo entrar limpo
+  try{
+    var _prevTelefones = document.getElementById("telefones-view");
+    var _prevConsulta = document.getElementById("consulta-telefones-view");
+    var _wasTelefones = (_prevTelefones && !_prevTelefones.classList.contains("hidden")) || (_prevConsulta && !_prevConsulta.classList.contains("hidden"));
+    var _isAtTelefones = viewId==="telefones-view" || viewId==="consulta-telefones-view";
+    if(_wasTelefones && !_isAtTelefones){
+      try{ resetarTelefonesView(); }catch(e){}
+    }
+  }catch(e){}
   const views =
     document.querySelectorAll(
       ".view, [id$='-view']"
@@ -863,9 +1102,9 @@ function mostrarView(viewId) {
     return;
   }
 
-  target.classList.remove(
+  try{ target.classList.remove(
     "hidden"
-  );
+  ); }catch(e){ try{ target.style.display=""; }catch(e2){} }
 
   document
     .querySelectorAll(".menu-item")
@@ -887,6 +1126,14 @@ function mostrarView(viewId) {
         );
       }
     });
+
+  // v3.32: Telefones abrange telefones-view e consulta-telefones-view — marca menu-telefones como ativo
+  try {
+    if (viewId === "telefones-view" || viewId === "consulta-telefones-view") {
+      var _btnTel = document.getElementById("menu-telefones");
+      if (_btnTel) _btnTel.classList.add("active");
+    }
+  } catch(eActiveTel) {}
 
   try{ if(typeof atualizarInterfaceUsuario==="function") atualizarInterfaceUsuario(); }catch(eUpd){}
   if(viewId==="consulta-telefones-view"){
@@ -910,6 +1157,24 @@ function mostrarView(viewId) {
       "function"
   ) {
     carregarSolicitacoes();
+    try{ setTimeout(atualizarBadgeSolicitacoes, 400); }catch(e){}
+  }
+
+  if (
+    viewId ===
+      "notificacoes-view"
+  ) {
+    const _pNotif = (typeof usuarioAtual!=="undefined" && usuarioAtual) ? String(usuarioAtual.perfil||"").toUpperCase() : "";
+    const _logNotif = !!(typeof usuarioAtual!=="undefined" && usuarioAtual && usuarioAtual.logado===true);
+    if(!(_logNotif && _pNotif==="GESTOR_CONTEUDO")){
+      mostrarToast("Acesso restrito a Gestor de Conteúdo.", "warning");
+      viewId="dashboard-view";
+      const _t2=document.getElementById(viewId);
+      if(_t2) _t2.classList.remove("hidden");
+      return;
+    }
+    if(typeof carregarNotificacoes ==="function") carregarNotificacoes();
+    if(typeof atualizarBadgeNotificacoes ==="function") try{ setTimeout(atualizarBadgeNotificacoes, 400); }catch(e){}
   }
 
   if (

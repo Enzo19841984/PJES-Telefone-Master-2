@@ -13,8 +13,211 @@ let filtroAtual = {
   tipo: "",
   setor: ""
 };
+// v3.25: ordem canónica Tipo — E-mail sempre último (Telefone, Ramal, WhatsApp, E-mail)
+var ORDEM_TIPO_FILTRO = ["Telefone","Ramal","WhatsApp","E-mail"];
+function normalizarTipoFiltro(v){ return String(v||"").trim().toLowerCase(); }
+function indiceOrdemTipoFiltro(v){
+  var n=normalizarTipoFiltro(v);
+  for(var i=0;i<ORDEM_TIPO_FILTRO.length;i++){ if(normalizarTipoFiltro(ORDEM_TIPO_FILTRO[i])===n) return i; }
+  return 999;
+}
+function ordenarTiposFiltro(lista){
+  var arr=Array.isArray(lista)?lista.slice():Array.from(lista||[]);
+  arr.sort(function(a,b){
+    var ia=indiceOrdemTipoFiltro(a), ib=indiceOrdemTipoFiltro(b);
+    if(ia!==ib) return ia-ib;
+    return String(a).localeCompare(String(b),"pt-BR");
+  });
+  return arr;
+}
+
+// v3.25 C — ordem da planilha TELEFONES (sheet order) — preserva ordemComarcas + ordem original
+function obterOrdemMicrorregioesPlanilha(){
+  var ordem=[];
+  var vistos={};
+  try{
+    if(typeof listaTelefones!=="undefined" && Array.isArray(listaTelefones)){
+      listaTelefones.forEach(function(it){
+        var m=String(it.microrregiao||it.microrregião||"").trim();
+        if(!m) return;
+        if(!vistos[m]){ vistos[m]=true; ordem.push(m); }
+      });
+    }
+  }catch(e){}
+  if(!ordem.length){
+    try{
+      if(typeof ordemComarcas!=="undefined" && Array.isArray(ordemComarcas) && ordemComarcas.length && typeof microrregioesPorComarca!=="undefined"){
+        var seenM={};
+        ordemComarcas.forEach(function(c){
+          var m=String(microrregioesPorComarca[c]||"").trim();
+          if(m && !seenM[m]){ seenM[m]=true; ordem.push(m); }
+        });
+      }
+    }catch(e2){}
+  }
+  if(!ordem.length){
+    try{ if(typeof comarcasPorMicrorregiao!=="undefined") ordem=Object.keys(comarcasPorMicrorregiao); }catch(e3){}
+  }
+  return ordem;
+}
+function obterOrdemComarcasPlanilha(){
+  if(typeof ordemComarcas!=="undefined" && Array.isArray(ordemComarcas) && ordemComarcas.length) return ordemComarcas.slice();
+  var ordemC=[];
+  var vistosC={};
+  try{
+    if(typeof listaTelefones!=="undefined" && Array.isArray(listaTelefones)){
+      listaTelefones.forEach(function(it){
+        var c=String(it.comarca||"").trim();
+        if(!c) return;
+        if(!vistosC[c]){ vistosC[c]=true; ordemC.push(c); }
+      });
+    }
+  }catch(e){}
+  return ordemC;
+}
+function obterOrdemSetoresPlanilha(){
+  var ordem=[];
+  var vistos={};
+  try{
+    if(typeof listaTelefones!=="undefined" && Array.isArray(listaTelefones)){
+      listaTelefones.forEach(function(it){
+        var s=String(it.setor||"").trim();
+        if(!s) return;
+        if(!vistos[s]){ vistos[s]=true; ordem.push(s); }
+      });
+    }
+  }catch(e){}
+  return ordem;
+}
+function ordenarPorPlanilha(valoresSet, tipo){
+  var lista=Array.from(valoresSet||[]);
+  if(tipo==="comarca"){
+    var ordemC=obterOrdemComarcasPlanilha();
+    var idxC={}; ordemC.forEach(function(c,i){ idxC[c]=i; });
+    lista.sort(function(a,b){
+      var ia=idxC.hasOwnProperty(a)? idxC[a] : 9999;
+      var ib=idxC.hasOwnProperty(b)? idxC[b] : 9999;
+      if(ia!==ib) return ia-ib;
+      return 0;
+    });
+    return lista;
+  } else if(tipo==="microrregiao"){
+    var ordemM=obterOrdemMicrorregioesPlanilha();
+    var idxM={}; ordemM.forEach(function(m,i){ idxM[m]=i; });
+    lista.sort(function(a,b){
+      var ia=idxM.hasOwnProperty(a)? idxM[a] : 9999;
+      var ib=idxM.hasOwnProperty(b)? idxM[b] : 9999;
+      if(ia!==ib) return ia-ib;
+      return 0;
+    });
+    return lista;
+  } else if(tipo==="setor"){
+    var ordemS=obterOrdemSetoresPlanilha();
+    var idxS={}; ordemS.forEach(function(s,i){ idxS[s]=i; });
+    lista.sort(function(a,b){
+      var ia=idxS.hasOwnProperty(a)? idxS[a] : 9999;
+      var ib=idxS.hasOwnProperty(b)? idxS[b] : 9999;
+      if(ia!==ib) return ia-ib;
+      return 0;
+    });
+    return lista;
+  }
+  return lista;
+}
 
 let pesquisaTimer = null;
+function obterOrdemMicrorregioesPlanilha(){
+  var ordem=[];
+  var vistos={};
+  try{
+    if(typeof listaTelefones!=="undefined" && Array.isArray(listaTelefones)){
+      listaTelefones.forEach(function(it){
+        var m=String(it.microrregiao||it.microrregião||"").trim();
+        if(!m) return;
+        if(!vistos[m]){ vistos[m]=true; ordem.push(m); }
+      });
+    }
+  }catch(e){}
+  if(!ordem.length){
+    try{
+      if(typeof ordemComarcas!=="undefined" && Array.isArray(ordemComarcas) && ordemComarcas.length && typeof microrregioesPorComarca!=="undefined"){
+        var seenM={};
+        ordemComarcas.forEach(function(c){
+          var m=String(microrregioesPorComarca[c]||"").trim();
+          if(m && !seenM[m]){ seenM[m]=true; ordem.push(m); }
+        });
+      }
+    }catch(e2){}
+  }
+  if(!ordem.length){
+    try{ if(typeof comarcasPorMicrorregiao!=="undefined") ordem=Object.keys(comarcasPorMicrorregiao); }catch(e3){}
+  }
+  return ordem;
+}
+function obterOrdemComarcasPlanilha(){
+  if(typeof ordemComarcas!=="undefined" && Array.isArray(ordemComarcas) && ordemComarcas.length) return ordemComarcas.slice();
+  var ordemC=[];
+  var vistosC={};
+  try{
+    if(typeof listaTelefones!=="undefined" && Array.isArray(listaTelefones)){
+      listaTelefones.forEach(function(it){
+        var c=String(it.comarca||"").trim();
+        if(!c) return;
+        if(!vistosC[c]){ vistosC[c]=true; ordemC.push(c); }
+      });
+    }
+  }catch(e){}
+  return ordemC;
+}
+function obterOrdemSetoresPlanilha(){
+  var ordem=[];
+  var vistos={};
+  try{
+    if(typeof listaTelefones!=="undefined" && Array.isArray(listaTelefones)){
+      listaTelefones.forEach(function(it){
+        var s=String(it.setor||"").trim();
+        if(!s) return;
+        if(!vistos[s]){ vistos[s]=true; ordem.push(s); }
+      });
+    }
+  }catch(e){}
+  return ordem;
+}
+function ordenarPorPlanilha(valoresSet, tipo){
+  var lista=Array.from(valoresSet||[]);
+  if(tipo==="comarca"){
+    var ordemC=obterOrdemComarcasPlanilha();
+    var idxC={}; ordemC.forEach(function(c,i){ idxC[c]=i; });
+    lista.sort(function(a,b){
+      var ia=idxC.hasOwnProperty(a)? idxC[a] : 9999;
+      var ib=idxC.hasOwnProperty(b)? idxC[b] : 9999;
+      if(ia!==ib) return ia-ib;
+      return 0;
+    });
+    return lista;
+  } else if(tipo==="microrregiao"){
+    var ordemM=obterOrdemMicrorregioesPlanilha();
+    var idxM={}; ordemM.forEach(function(m,i){ idxM[m]=i; });
+    lista.sort(function(a,b){
+      var ia=idxM.hasOwnProperty(a)? idxM[a] : 9999;
+      var ib=idxM.hasOwnProperty(b)? idxM[b] : 9999;
+      if(ia!==ib) return ia-ib;
+      return 0;
+    });
+    return lista;
+  } else if(tipo==="setor"){
+    var ordemS=obterOrdemSetoresPlanilha();
+    var idxS={}; ordemS.forEach(function(s,i){ idxS[s]=i; });
+    lista.sort(function(a,b){
+      var ia=idxS.hasOwnProperty(a)? idxS[a] : 9999;
+      var ib=idxS.hasOwnProperty(b)? idxS[b] : 9999;
+      if(ia!==ib) return ia-ib;
+      return 0;
+    });
+    return lista;
+  }
+  return lista;
+}
 
 // shared with DashboardJS/ConsultarJS — frontend norm variant; GS canonical normalizarChave in 02_Utils.gs.txt
 function normalizarTextoFront(valor) {
@@ -159,6 +362,23 @@ function aplicarFiltros() {
       ? tipo.value
       : "";
 
+  // v3.25 C: ao filtrar Microrregião/Comarca, Setor mostra apenas setores daquela Microrregião/Comarca (cascata)
+  var setorAntes = filtroAtual.setor;
+  var setorElAntesVal = setorEl ? String(setorEl.value||"") : "";
+  try{
+    var comarcaValAtual = comarca ? String(comarca.value||"") : "";
+    var precisaCascata = (microAnterior!==microNovo) || (filtroAtual.comarca!==comarcaValAtual);
+    if(precisaCascata){
+      atualizarFiltroSetorPorMicrorregiaoComarca();
+      if(setorEl){
+        var opts=Array.from(setorEl.options).map(function(o){return String(o.value||"");});
+        if(setorAntes && opts.indexOf(setorAntes)!==-1) setorEl.value=setorAntes;
+        else if(setorElAntesVal && opts.indexOf(setorElAntesVal)!==-1) setorEl.value=setorElAntesVal;
+        else if(setorAntes && opts.indexOf(setorAntes)===-1){ setorEl.value=""; filtroAtual.setor=""; }
+      }
+    }
+  }catch(eCasc){}
+
   filtroAtual.setor =
     setorEl
       ? setorEl.value
@@ -168,6 +388,9 @@ function aplicarFiltros() {
 }
 
 function atualizarFiltroSetorPorComarca() {
+  return atualizarFiltroSetorPorMicrorregiaoComarca();
+}
+function atualizarFiltroSetorPorMicrorregiaoComarca() {
   if (
     typeof listaTelefones === "undefined" ||
     !Array.isArray(listaTelefones)
@@ -175,7 +398,14 @@ function atualizarFiltroSetorPorComarca() {
     return;
   }
 
+  var filtroMicroSel = normalizarTextoFront(filtroAtual.microrregiao || "");
   var filtroComarcaSel = normalizarTextoFront(filtroAtual.comarca || "");
+  try {
+    var elMicro = document.getElementById("filtro-microrregiao");
+    if (elMicro && elMicro.value !== filtroAtual.microrregiao) {
+      filtroMicroSel = normalizarTextoFront(elMicro.value || "");
+    }
+  } catch (e) {}
   try {
     var elComarca = document.getElementById("filtro-comarca");
     if (elComarca && elComarca.value !== filtroAtual.comarca) {
@@ -185,8 +415,13 @@ function atualizarFiltroSetorPorComarca() {
 
   var setoresFiltrados = new Set();
 
+  // v3.25 C: cascata Microrregião -> Comarca -> Setor, ordem da planilha preservada via Set insertion order
   listaTelefones.forEach(function(item){
     if (!item || !item.setor) return;
+    if (filtroMicroSel) {
+      var microItem = normalizarTextoFront(item.microrregiao || "");
+      if (microItem !== filtroMicroSel) return;
+    }
     if (filtroComarcaSel) {
       var comItem = normalizarTextoFront(item.comarca || "");
       if (comItem !== filtroComarcaSel) return;
@@ -311,7 +546,10 @@ function aplicarFiltrosLocais(
       filtroAtual.setor
     );
 
-  return dados.filter(item => {
+  // v3.32 pesquisa geral: quando há texto, ignora comarca/microrregiao e busca em todas comarcas em ordem planilha, mantendo destaque do filtro
+  const ehPesquisaGeral = !!texto;
+
+  let filtrados = dados.filter(item => {
     if (texto) {
       const conteudo =
         Object.values(item || {})
@@ -329,7 +567,9 @@ function aplicarFiltrosLocais(
       }
     }
 
+    // v3.32: pesquisa geral ignora filtro de comarca/microrregiao mas mantém destaque visual (filtroAtual permanece preenchido)
     if (
+      !ehPesquisaGeral &&
       microrregiao &&
       normalizarTextoFront(
         item.microrregiao
@@ -339,6 +579,7 @@ function aplicarFiltrosLocais(
     }
 
     if (
+      !ehPesquisaGeral &&
       comarca &&
       normalizarTextoFront(
         item.comarca
@@ -367,6 +608,30 @@ function aplicarFiltrosLocais(
 
     return true;
   });
+
+  // v3.32: em pesquisa geral, ordena resultado pela ordem da planilha (ordemComarcas) para manter ordem planilha
+  if (ehPesquisaGeral && filtrados.length > 1) {
+    try {
+      var ordem = (typeof obterOrdemComarcasPlanilha === "function") ? obterOrdemComarcasPlanilha() : (typeof ordemComarcas !== "undefined" && Array.isArray(ordemComarcas) ? ordemComarcas.slice() : []);
+      if (ordem && ordem.length) {
+        var idxMap = {};
+        for (var _oi = 0; _oi < ordem.length; _oi++) {
+          var _ck = normalizarTextoFront(ordem[_oi]);
+          if (!idxMap.hasOwnProperty(_ck)) idxMap[_ck] = _oi;
+        }
+        filtrados = filtrados.slice().sort(function(a,b){
+          var ca = normalizarTextoFront(a.comarca || "");
+          var cb = normalizarTextoFront(b.comarca || "");
+          var ia = idxMap.hasOwnProperty(ca) ? idxMap[ca] : 9999;
+          var ib = idxMap.hasOwnProperty(cb) ? idxMap[cb] : 9999;
+          if (ia !== ib) return ia - ib;
+          return 0;
+        });
+      }
+    } catch(eOrd) {}
+  }
+
+  return filtrados;
 }
 
 function atualizarTabelaComFiltros() {
@@ -511,22 +776,37 @@ function carregarFiltros() {
     "Todos os tipos"
   );
 
-  // Setor: filtra por microrregião/comarca se selecionadas
+  // v3.30: Setor cascata — se comarca selecionada, só setores daquela comarca (não toda microrregião)
   (function(){
     var setorFiltrados = setoresFiltro;
     var filtroMicroF = normalizarTextoFront(filtroAtual.microrregiao || "");
     var filtroComarcaF = normalizarTextoFront(filtroAtual.comarca || "");
-    if (filtroMicroF || filtroComarcaF) {
-      setorFiltrados = new Set(
-        Array.from(setoresFiltro).filter(function(nomeSetor){
-          return listaTelefones.some(function(it){
-            var matchSetor = String(it.setor||"")===String(nomeSetor);
-            var matchMicro = !filtroMicroF || normalizarTextoFront(it.microrregiao||"")===filtroMicroF;
-            var matchComarca = !filtroComarcaF || normalizarTextoFront(it.comarca||"")===filtroComarcaF;
-            return matchSetor && matchMicro && matchComarca;
-          });
-        })
-      );
+    try{
+      var elM=document.getElementById("filtro-microrregiao");
+      if(elM && elM.value) filtroMicroF=normalizarTextoFront(elM.value||filtroAtual.microrregiao||"");
+      var elC=document.getElementById("filtro-comarca");
+      if(elC && elC.value) filtroComarcaF=normalizarTextoFront(elC.value||filtroAtual.comarca||"");
+    }catch(e){}
+    if (filtroComarcaF) {
+      var cascSet=new Set();
+      listaTelefones.forEach(function(it){
+        if(!it || !it.setor) return;
+        var s=String(it.setor||"").trim(); if(!s) return;
+        if(normalizarTextoFront(it.comarca||"")!==filtroComarcaF) return;
+        if(Array.from(setoresFiltro).indexOf(s)===-1) return;
+        cascSet.add(s);
+      });
+      setorFiltrados = cascSet;
+    } else if (filtroMicroF) {
+      var cascSet2=new Set();
+      listaTelefones.forEach(function(it){
+        if(!it || !it.setor) return;
+        var s=String(it.setor||"").trim(); if(!s) return;
+        if(normalizarTextoFront(it.microrregiao||"")!==filtroMicroF) return;
+        if(Array.from(setoresFiltro).indexOf(s)===-1) return;
+        cascSet2.add(s);
+      });
+      setorFiltrados = cascSet2;
     }
     preencherSelect(
       "filtro-setor",
@@ -569,13 +849,23 @@ function preencherSelect(
     opcaoTodos
   );
 
-  Array.from(valores || [])
-    .sort((a, b) =>
-      String(a).localeCompare(
-        String(b),
-        "pt-BR"
-      )
-    )
+  // v3.25 C: Microrregião/Comarca/Setor na ordem da planilha (ordemComarcas + ordem original), não alfabético
+  var listaOrdenada;
+  if(id==="filtro-tipo" && typeof ordenarTiposFiltro==="function"){
+    listaOrdenada = ordenarTiposFiltro(valores);
+  } else if(id==="filtro-microrregiao" && typeof ordenarPorPlanilha==="function"){
+    listaOrdenada = ordenarPorPlanilha(valores, "microrregiao");
+  } else if(id==="filtro-comarca" && typeof ordenarPorPlanilha==="function"){
+    listaOrdenada = ordenarPorPlanilha(valores, "comarca");
+  } else if(id==="filtro-setor" && typeof ordenarPorPlanilha==="function"){
+    listaOrdenada = ordenarPorPlanilha(valores, "setor");
+  } else {
+    listaOrdenada = Array.from(valores || []).slice().sort(function(a,b){
+      return String(a).localeCompare(String(b),"pt-BR");
+    });
+  }
+
+  listaOrdenada
     .forEach(valor => {
       const opcao =
         document.createElement(
@@ -593,8 +883,21 @@ function preencherSelect(
       );
     });
 
-  select.value =
-    valorAtual;
+  // Se valorAtual não existe mais (tipo legado), cria opção mas mantém E-mail último
+  if(valorAtual && Array.from(select.options).every(function(o){ return o.value!==valorAtual; })){
+    var optExtra=document.createElement("option"); optExtra.value=valorAtual; optExtra.textContent=valorAtual;
+    if(id==="filtro-tipo"){
+      var emailOpt=Array.from(select.options).find(function(o){ return o.value==="E-mail"; });
+      if(emailOpt) select.insertBefore(optExtra, emailOpt);
+      else select.appendChild(optExtra);
+    } else {
+      select.appendChild(optExtra);
+    }
+    select.value=valorAtual;
+  } else {
+    select.value =
+      valorAtual;
+  }
 }
 
 function erroPadraoSearch(erro) {
@@ -649,6 +952,11 @@ if(typeof blocoCardsHtml!=="function"){
   var blocoCardsHtml = function(titulo, valores){
     var lista = Array.isArray(valores) ? valores.filter(function(v){ var t=String(v||"").trim(); return t && t!=="-" && t!=="–" && t!=="—"; }) : [];
     if(!lista.length) return '<div class="bloco"><div class="bloco-titulo">'+htmlEscCards(titulo)+'</div><div class="vazio">-</div></div>';
+    // v3.32 Endereço com Google Maps
+    if (String(titulo||"").toLowerCase().indexOf("endere") !== -1) {
+      var itens = lista.map(function(v){ var esc = htmlEscCards(v); var href = "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(String(v||"").trim()); return '<div class="item"><a href="'+href+'" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:none;" title="Abrir no Google Maps">'+esc+'</a></div>'; }).join("");
+      return '<div class="bloco"><div class="bloco-titulo">'+htmlEscCards(titulo)+'</div><div class="bloco-lista">'+itens+'</div></div>';
+    }
     var itens = lista.map(function(v){ return '<div class="item">'+htmlEscCards(v)+'</div>'; }).join("");
     return '<div class="bloco"><div class="bloco-titulo">'+htmlEscCards(titulo)+'</div><div class="bloco-lista">'+itens+'</div></div>';
   };
@@ -672,7 +980,24 @@ if(typeof cardSetorHtmlComarca!=="function"){
  * ---------------------------------------------------------- */
 function imprimirTodosContatosCards(){
   try{
-    var setoresMap = (typeof setoresPorComarca!=="undefined" && setoresPorComarca) ? setoresPorComarca : {};
+    // v3.25 A: Gestor Conteúdo só imprime comarcas permitidas
+    var setoresMapRaw = (typeof setoresPorComarca!=="undefined" && setoresPorComarca) ? setoresPorComarca : {};
+    var setoresMap = setoresMapRaw;
+    try{
+      var isGCc = typeof usuarioAtual!=="undefined" && usuarioAtual && String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_CONTEUDO";
+      if(isGCc && typeof comarcasPermitidasDoUsuario==="function"){
+        var permC = comarcasPermitidasDoUsuario();
+        if(Array.isArray(permC) && permC.length){
+          setoresMap={};
+          for(var kc in setoresMapRaw){
+            if(!setoresMapRaw.hasOwnProperty(kc)) continue;
+            var ckC=typeof normalizarChaveTabela==="function"?normalizarChaveTabela(kc): String(kc).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]/g,"").toUpperCase();
+            if(permC.indexOf(ckC)!==-1) setoresMap[kc]=setoresMapRaw[kc];
+          }
+          if(!Object.keys(setoresMap).length) setoresMap=setoresMapRaw;
+        }
+      }
+    }catch(ePermC){}
     var ordem = (typeof ordemComarcas!=="undefined" && Array.isArray(ordemComarcas) && ordemComarcas.length) ? ordemComarcas : Object.keys(setoresMap).sort(function(a,b){return a.localeCompare(b,"pt-BR");});
     var temOrdem = ordem && ordem.length;
     if(!temOrdem){
@@ -741,6 +1066,16 @@ function imprimirTodosContatosCards(){
   }catch(e){ console.error(e); if(typeof mostrarToast==="function") mostrarToast("N\u00e3o foi poss\u00edvel imprimir.","error"); }
 }
 
+function podeImprimirComarcaTelefones(comarca){
+  try{
+    if(typeof comarcasPermitidasDoUsuario!=="function") return true;
+    var perm=comarcasPermitidasDoUsuario();
+    if(perm===null) return true;
+    if(!Array.isArray(perm) || !perm.length) return true;
+    var ck=typeof normalizarChaveTabela==="function"?normalizarChaveTabela(comarca): String(comarca||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]/g,"").toUpperCase();
+    return perm.indexOf(ck)!==-1;
+  }catch(e){ return true; }
+}
 function imprimirTelefonesVisiveis(){
   var dados = [];
   try {
@@ -753,6 +1088,25 @@ function imprimirTelefonesVisiveis(){
     }
   } catch(e){ try{ dados = (typeof listaTelefones!=="undefined"?listaTelefones:[]).slice(); }catch(e2){ dados=[]; } }
   if(!Array.isArray(dados)) dados=[];
+  // v3.25 A: Gestor Conteúdo só imprime comarcas permitidas
+  try{
+    var isGC = typeof usuarioAtual!=="undefined" && usuarioAtual && String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_CONTEUDO";
+    if(isGC){
+      var dadosPermitidos = dados.filter(function(it){
+        var c=String(it.comarca||it.COMARCA||"").trim();
+        return podeImprimirComarcaTelefones(c);
+      });
+      if(!dadosPermitidos.length){
+        if(typeof mostrarToast==="function") mostrarToast("Sem permissão para imprimir esta comarca","warning");
+        else if(typeof notificarTabela==="function") notificarTabela("Sem permissão para imprimir esta comarca","warning");
+        return;
+      }
+      if(dadosPermitidos.length < dados.length){
+        if(typeof mostrarToast==="function") mostrarToast("Sem permissão para imprimir esta comarca","warning");
+        dados = dadosPermitidos;
+      }
+    }
+  }catch(ePerm){}
   abrirJanelaImpressao("Telefones \u2014 Contatos vis\u00edveis", ["Comarca","Setor","Tipo","Telefone","Ramal","WhatsApp","E-mail","Endere\u00e7o"], linhasDeTelefones(dados));
 }
 

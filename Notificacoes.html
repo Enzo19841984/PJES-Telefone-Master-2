@@ -1,0 +1,77 @@
+<!--
+==========================================================
+SISTEMA DE TELEFONES TJES
+Arquivo: Notificacoes.html
+==========================================================
+-->
+
+<div class="page-header">
+  <div>
+    <h2>Notifica&ccedil;&otilde;es</h2>
+    <p>Central de avisos do sistema</p>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <button type="button" id="btn-marcar-todas-lidas" class="btn btn-secondary" onclick="marcarTodasNotificacoesLidas()" style="display:none;">
+      &#x2713; Marcar todas como lidas
+    </button>
+    <button type="button" class="btn btn-secondary" onclick="carregarNotificacoes()">
+      &#x21bb; Atualizar
+    </button>
+  </div>
+</div>
+
+<div id="notificacoes-container" class="notificacoes-container">
+  <div id="notificacoes-lista" class="notificacoes-lista">
+    <div class="notificacoes-vazio" style="text-align:center;color:#64748b;padding:32px;">
+      Carregando notifica&ccedil;&otilde;es...
+    </div>
+  </div>
+</div>
+
+<style>
+.notificacoes-container{width:100%;}
+.notificacoes-lista{display:flex;flex-direction:column;gap:10px;}
+.notificacao-card{
+  display:flex;
+  gap:14px;
+  align-items:flex-start;
+  padding:14px 16px;
+  background:#fff;
+  border:1px solid #e2e8f0;
+  border-left:4px solid #e2e8f0;
+  border-radius:10px;
+  box-shadow:0 1px 4px rgba(0,0,0,.06);
+  transition:.15s;
+}
+.notificacao-card.nao-lida{
+  border-left-color:#2563eb;
+  background:#f8fafc;
+  box-shadow:0 2px 8px rgba(37,99,235,.12);
+}
+.notificacao-card.lida{
+  opacity:.92;
+}
+.notificacao-card:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.08);}
+.notificacao-icone{
+  flex:0 0 36px;
+  width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  font-size:16px;
+  background:#f1f5f9;
+}
+.notificacao-card.nao-lida .notificacao-icone{background:#dbeafe;}
+.notificacao-conteudo{flex:1;min-width:0;}
+.notificacao-tipo{
+  display:inline-block;
+  font-size:10px;font-weight:700;letter-spacing:.04em;
+  padding:2px 7px;border-radius:999px;
+  background:#f1f5f9;color:#475569;
+  margin-bottom:4px;
+}
+.notificacao-card.nao-lida .notificacao-tipo{background:#2563eb;color:#fff;}
+.notificacao-mensagem{font-size:13px;color:#0f172a;line-height:1.5;word-break:break-word;}
+.notificacao-data{font-size:11px;color:#94a3b8;margin-top:6px;}
+.notificacao-acoes{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;}
+.notificacoes-vazio{padding:24px;text-align:center;color:#64748b;background:#fff;border:1px dashed #e2e8f0;border-radius:10px;}
+</style>

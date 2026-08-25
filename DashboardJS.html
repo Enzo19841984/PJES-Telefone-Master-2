@@ -60,6 +60,7 @@ function escaparJs(valor) {
     .replace(/\r?\n/g, "\\n");
 }
 
+function linkEnderecoDashboard(v){ var s=String(v||"").trim(); if(!s) return ""; return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(s); }
 function chaveSegura(valor) {
   return String(valor || "").replace(/[^a-zA-Z0-9]/g, "_");
 }
@@ -99,15 +100,24 @@ function iniciarConsultaTelefones() {
       processarDados();
       preencherFiltroMicrorregiao();
       renderizarComarcas();
+      try{ if(typeof popularFiltrosConsulta==="function") popularFiltrosConsulta(); }catch(e){}
       try{ sincronizarSolicitacoesPendentesDashboard(); }catch(e){}
       atualizarDashboardPublico(todosTelefones);
 
-      if (typeof carregarFiltros === "function") {
-        try { carregarFiltros(); } catch (e) { console.error("carregarFiltros:", e); }
-      }
+      // v3.33 guard: Gestor Conteudo e Gestor Sistema usam mapa (remove race/double render) — GS com todas comarcas
+      var _isGC_dash = !!(typeof usuarioAtual!=="undefined" && usuarioAtual && (String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_CONTEUDO" || String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_SISTEMA") && usuarioAtual.logado===true);
+      if(_isGC_dash){
+        var _tvDash = document.getElementById("telefones-view");
+        if(_tvDash) _tvDash.classList.add("hidden");
+        // v3.33 GS via mapa: garante que tabela nao seja injetada no arranque; tabela acessivel via navegarParaTabelaTelefones()
+      } else {
+        if (typeof carregarFiltros === "function") {
+          try { carregarFiltros(); } catch (e) { console.error("carregarFiltros:", e); }
+        }
 
-      if (typeof atualizarTabelaComFiltros === "function") {
-        try { atualizarTabelaComFiltros(); } catch (e) { console.error("atualizarTabelaComFiltros:", e); }
+        if (typeof atualizarTabelaComFiltros === "function") {
+          try { atualizarTabelaComFiltros(); } catch (e) { console.error("atualizarTabelaComFiltros:", e); }
+        }
       }
 
       /* Estado inicial: mapa visível e impressão oculta. */
@@ -229,6 +239,10 @@ function selecionarMicrorregiaoConsulta(valor) {
 
   renderizarComarcas();
 }
+function pesquisar(){
+  if(typeof filtrarSetoresConsultaDebounced==="function") return filtrarSetoresConsultaDebounced();
+  if(typeof filtrarSetoresConsulta==="function") return filtrarSetoresConsulta();
+}
 
 function renderizarComarcas() {
   const container = document.getElementById("consulta-lista");
@@ -240,25 +254,10 @@ function renderizarComarcas() {
   let comarcas;
 
   if (termo) {
-    // Busca ativa: ignora microrregião e usa ordem global da planilha (sheet order = ordemComarcas)
-    // Para Gestor Conteúdo, filtra para apenas comarcas permitidas (mantém ordemComarcas)
-    if (typeof usuarioAtual !== "undefined" && usuarioAtual && String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_CONTEUDO" && typeof comarcasPermitidasDoUsuario==="function") {
-      var perm = comarcasPermitidasDoUsuario();
-      if (Array.isArray(perm) && perm.length) {
-        comarcas = [];
-        for (var _i=0; _i<ordemComarcas.length; _i++) {
-          var _c = ordemComarcas[_i];
-          var _ck = typeof normalizarChaveTabela==="function" ? normalizarChaveTabela(_c) : String(_c).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]/g,"").toUpperCase();
-          if (perm.indexOf(_ck)!==-1) comarcas.push(_c);
-        }
-        if (!comarcas.length) comarcas = ordemComarcas.slice();
-        else { /* filtered */ }
-      } else {
-        comarcas = ordemComarcas;
-      }
-    } else {
-      comarcas = ordemComarcas;
-    }
+    // v3.25 B: Busca ativa ignora microrregião e usa ordem global da planilha (ordemComarcas = sheet order)
+    // Para Gestor Conteúdo: permite busca em todas comarcas (consulta liberada), mas impressão permanece bloqueada por permissão
+    // Mantém ordemComarcas completa para case-insensitive search; botões Imprimir/PDF já verificam podeEditarComarca
+    comarcas = ordemComarcas;
   } else if (microrregiaoSelecionada) {
     var _rawMicro = comarcasPorMicrorregiao[microrregiaoSelecionada] || [];
     var _isGCMicro = !!(typeof usuarioAtual !== "undefined" && usuarioAtual && String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_CONTEUDO");
@@ -367,7 +366,7 @@ function renderizarComarcas() {
                 var v=sessionStorage.getItem(k);
                 if(v){ var ts=Number(v); if(Date.now()-ts>10*60*1000){ sessionStorage.removeItem(k); } else isSoli=true; }
               }catch(e){}
-              if(isSoli) return '<button type="button" class="btn btn-secondary" style="padding:3px 8px;font-size:11px;white-space:nowrap;background:#dcfce7;border-color:#86efac;color:#166534;" onclick="event.stopPropagation(); handleSolicitarComarcaClick(\'' + escaparJs(c) + '\', this)">✓ Solicitado</button>';
+              if(isSoli) return '<button type="button" class="btn btn-secondary" style="padding:3px 8px;font-size:11px;white-space:nowrap;background:#fee2e2;border-color:#fca5a5;color:#991b1b;" onclick="event.stopPropagation(); handleSolicitarComarcaClick(\'' + escaparJs(c) + '\', this)" title="Clique para cancelar a solicitação">✕ Cancelar</button>';
               return '<button type="button" class="btn btn-secondary" style="padding:3px 8px;font-size:11px;white-space:nowrap;" onclick="event.stopPropagation(); handleSolicitarComarcaClick(\'' + escaparJs(c) + '\', this)">🔓 Solicitar acesso</button>';
             }catch(e){ return ""; }
           })(comarca) +
@@ -443,6 +442,11 @@ function toggleComarca(id) {
   }
 
   el.classList.toggle("hidden");
+  try{
+    if(typeof estadoColapsadoComarca!=="undefined"){
+      estadoColapsadoComarca[id] = el.classList.contains("hidden");
+    }
+  }catch(e){}
 }
 
 function selecionarSetor(
@@ -477,7 +481,33 @@ function selecionarSetor(
   }
 }
 
-function atualizarDashboardPublico(telefones) {
+function atualizarDashboardPublico(telefonesRaw) {
+  // v3.27: filtra por comarcas permitidas APENAS para Gestor Conteúdo — público e Gestor Sistema veem tudo
+  // v3.32 verificado: filtro correto — somente GC filtra; null=vazia significa todas (compatível com comarcasPermitidasDoUsuario que retorna null para GC sem restricao)
+  let telefones = Array.isArray(telefonesRaw) ? telefonesRaw.slice() : [];
+  try{
+    const perfil = (typeof usuarioAtual !== "undefined" && usuarioAtual) ? String(usuarioAtual.perfil || "") : "";
+    const isGC = perfil === "GESTOR_CONTEUDO" && usuarioAtual && usuarioAtual.logado === true;
+    if(isGC && typeof comarcasPermitidasDoUsuario==="function"){
+      const perm = comarcasPermitidasDoUsuario();
+      if(perm!==null){
+        if(!Array.isArray(perm) || perm.length===0){
+          // v3.32: perm vazio ou invalido para GC => tratar como sem restricao (todas) para manter compatibilidade com TableJS (length 0 => null => todas)
+          // Mantém telefones intacto (sem filtro). Antigo comportamento (telefones=[]) ocultava tudo e foi corrigido.
+        } else {
+          telefones = telefones.filter(function(item){
+            const comarca = String(campoTelefone(item, ["comarca"]) || "").trim();
+            let ck="";
+            try{
+              ck = (typeof normalizarChaveTabela==="function" ? normalizarChaveTabela(comarca) : String(comarca).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]/g,"").toUpperCase());
+            }catch(e){ ck = String(comarca).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]/g,"").toUpperCase(); }
+            return perm.indexOf(ck)!==-1;
+          });
+        }
+      }
+    }
+  }catch(eFiltro){}
+
   const setores = new Set();
   const tipos = new Set();
   const porTipo = {};
@@ -671,11 +701,11 @@ function handleSolicitarComarcaClick(comarca, botao){
             if(botao){ botao.textContent="🔓 Solicitar acesso"; botao.style.background=""; botao.style.borderColor=""; botao.style.color=""; botao.disabled=false; }
             if(typeof mostrarToast==="function") mostrarToast("Solicitação cancelada.","warning"); else try{ alert("Solicitação cancelada."); }catch(e){}
           } else {
-            if(botao){ botao.disabled=false; botao.textContent="✓ Solicitado"; }
+            if(botao){ botao.disabled=false; botao.textContent="✕ Cancelar"; botao.style.background="#fee2e2"; botao.style.borderColor="#fca5a5"; botao.style.color="#991b1b"; }
             if(typeof mostrarToast==="function") mostrarToast((res&&res.erro)||"Falha ao cancelar.", "error");
           }
         }, function(err){
-          if(botao){ botao.disabled=false; botao.textContent="✓ Solicitado"; }
+          if(botao){ botao.disabled=false; botao.textContent="✕ Cancelar"; botao.style.background="#fee2e2"; botao.style.borderColor="#fca5a5"; botao.style.color="#991b1b"; }
           if(typeof mostrarToast==="function") mostrarToast((err&&err.message)||"Falha ao cancelar.", "error");
         });
       } else {
@@ -691,7 +721,7 @@ function handleSolicitarComarcaClick(comarca, botao){
     API.solicitarPermissaoComarca(comarca, function(res){
       if(res && res.sucesso===true){
         try{ sessionStorage.setItem(chaveSolicitacaoComarcaGC(comarca), String(Date.now())); }catch(e){}
-        if(botao){ botao.textContent="✓ Solicitado"; botao.style.background="#dcfce7"; botao.style.borderColor="#86efac"; botao.style.color="#166534"; botao.disabled=false; }
+        if(botao){ botao.textContent="✕ Cancelar"; botao.style.background="#fee2e2"; botao.style.borderColor="#fca5a5"; botao.style.color="#991b1b"; botao.title="Clique para cancelar a solicitação"; botao.disabled=false; }
         if(typeof mostrarToast==="function") mostrarToast("Solicitação enviada ao Gestor do Sistema. Você será avisado por e-mail quando o acesso for liberado.", "success");
       } else {
         if(botao){ botao.disabled=false; botao.textContent="🔓 Solicitar acesso"; }
@@ -711,6 +741,23 @@ function imprimirMultiplasComarcas(listaComarcas){
   try{
     var nomes = Array.isArray(listaComarcas) ? listaComarcas.slice() : [];
     if(!nomes.length){ if(typeof mostrarToast==="function") mostrarToast("Nenhuma comarca para imprimir.","warning"); return; }
+    // v3.25 A: filtra para apenas permitidas se Gestor Conteúdo
+    try{
+      var _isGCm = typeof usuarioAtual!=="undefined" && usuarioAtual && String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_CONTEUDO" && usuarioAtual.logado===true;
+      if(_isGCm && typeof comarcasPermitidasDoUsuario==="function"){
+        var _permM=comarcasPermitidasDoUsuario();
+        if(Array.isArray(_permM) && _permM.length){
+          var _filtrada=[];
+          for(var _mi=0; _mi<nomes.length; _mi++){
+            var _cm=nomes[_mi];
+            var _ckM=typeof normalizarChaveTabela==="function"?normalizarChaveTabela(_cm): String(_cm).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]/g,"").toUpperCase();
+            if(_permM.indexOf(_ckM)!==-1) _filtrada.push(_cm);
+          }
+          if(_filtrada.length) nomes=_filtrada;
+          else { if(typeof mostrarToast==="function") mostrarToast("Sem permissão para imprimir esta comarca","warning"); return; }
+        }
+      }
+    }catch(e){}
     var cardsHtml = "";
     var totalSetores = 0;
     for(var ci=0; ci<nomes.length; ci++){
@@ -828,24 +875,39 @@ function htmlEscCards(v){ return String(v==null?"":v).replace(/&/g,"&amp;").repl
 function blocoCardsHtml(titulo, valores){
   var lista = Array.isArray(valores) ? valores.filter(function(v){ var t=String(v||"").trim(); return t && t!=="-" && t!=="–" && t!=="—"; }) : [];
   if(!lista.length) return '<div class="bloco"><div class="bloco-titulo">'+htmlEscCards(titulo)+'</div><div class="vazio">-</div></div>';
+  // v3.32: Endereço com link para Google Maps
+  if (String(titulo||"").toLowerCase().indexOf("endere") !== -1) {
+    var itens = lista.map(function(v){ var esc = htmlEscCards(v); var href = "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(String(v||"").trim()); return '<div class="item"><a href="'+href+'" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:none;" title="Abrir no Google Maps">'+esc+'</a></div>'; }).join("");
+    return '<div class="bloco"><div class="bloco-titulo">'+htmlEscCards(titulo)+'</div><div class="bloco-lista">'+itens+'</div></div>';
+  }
   var itens = lista.map(function(v){ return '<div class="item">'+htmlEscCards(v)+'</div>'; }).join("");
   return '<div class="bloco"><div class="bloco-titulo">'+htmlEscCards(titulo)+'</div><div class="bloco-lista">'+itens+'</div></div>';
 }
 function cardSetorHtmlComarca(comarca, setor, grupos){
   var g = grupos || {telefones:[],ramais:[],whatsapps:[],emails:[],enderecos:[]};
+  // v3.33 ordem canônica Endereco(Top), Telefone, Ramal, WhatsApp, E-mail(Bottom)
   return '<div class="setor-card">'
     + '<h3>'+htmlEscCards(setor)+'</h3>'
+    + blocoCardsHtml("Endere\u00e7o", g.enderecos)
     + blocoCardsHtml("Telefone", g.telefones)
     + blocoCardsHtml("Ramal", g.ramais)
     + blocoCardsHtml("WhatsApp", g.whatsapps)
     + blocoCardsHtml("E-mail", g.emails)
-    + blocoCardsHtml("Endere\u00e7o", g.enderecos)
     + '</div>';
 }
 function imprimirComarcaSetoresCards(comarcaNome){
   try{
     var nome = String(comarcaNome||"").trim();
     if(!nome){ if(typeof mostrarToast==="function") mostrarToast("Comarca n\u00e3o informada.","warning"); return; }
+    // v3.25 C: Conteudo sem permissao nao pode imprimir
+    try{
+      var _isGC_d = typeof usuarioAtual!=="undefined" && usuarioAtual && String(usuarioAtual.perfil||"").toUpperCase()==="GESTOR_CONTEUDO" && usuarioAtual.logado===true;
+      if(_isGC_d){
+        var _podeD=false;
+        try{ if(typeof podeEditarComarca==="function") _podeD=podeEditarComarca(nome); else if(typeof comarcasPermitidasDoUsuario==="function"){ var _alD=comarcasPermitidasDoUsuario(); if(_alD===null) _podeD=true; else if(Array.isArray(_alD)){ var _ckD=typeof normalizarChaveTabela==="function"?normalizarChaveTabela(nome):String(nome).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]/g,"").toUpperCase(); _podeD=_alD.indexOf(_ckD)!==-1; } } }catch(e){ _podeD=true; }
+        if(!_podeD){ if(typeof mostrarToast==="function") mostrarToast("Sem permiss\u00e3o para imprimir esta comarca.", "warning"); return; }
+      }
+    }catch(e){}
     var setores = null;
     try{ setores = (typeof setoresPorComarca!=="undefined" && setoresPorComarca[nome]) ? setoresPorComarca[nome] : null; }catch(e){ setores=null; }
     var cardsHtml = "";

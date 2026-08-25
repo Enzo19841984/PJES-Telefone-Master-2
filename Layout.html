@@ -25,7 +25,7 @@ Arquivo: Layout.html
       </div>
     </header>
 
-    <section id="dashboard-view" class="view">
+    <section id="dashboard-view" class="view hidden">
       <?!= include("Dashboard"); ?>
     </section>
 
@@ -33,7 +33,7 @@ Arquivo: Layout.html
       <?!= include("Telefones"); ?>
     </section>
 
-    <section id="consulta-telefones-view" class="view hidden">
+    <section id="consulta-telefones-view" class="view">
       <?!= include("ConsultarTelefones"); ?>
     </section>
 
@@ -56,6 +56,8 @@ Arquivo: Layout.html
     <section id="solicitacoes-view" class="view hidden">
       <?!= include("Solicitacoes"); ?>
     </section>
+
+    <section id="notificacoes-view" class="view hidden"><?!= include("Notificacoes"); ?></section>
 
     <section id="usuarios-view" class="view hidden">
       <?!= include("Usuarios"); ?>

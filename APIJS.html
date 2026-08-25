@@ -79,6 +79,11 @@ const API = {
       .listarSolicitacoes();
   },
 
+  contarSolicitacoesPendentes(sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .contarSolicitacoesPendentes();
+  },
+
   aprovarSolicitacao(id, sucesso, erro) {
     criarRunnerAPI(sucesso, erro)
       .aprovarSolicitacao(id);
@@ -164,8 +169,73 @@ const API = {
   },
 
   autenticarConsulta(email, senha, sucesso, erro) {
+    // v3.32: caller (Login.html fazerLoginConsulta) deve recarregar Telefones apos sucesso via recarregarTelefonesAposLogin/carregarTelefones
     criarRunnerAPI(sucesso, erro)
       .autenticarConsulta({ email: email, senha: senha });
+  },
+
+  // v3.32 helper: autenticar e ja recarregar aba Telefones (uso opcional)
+  autenticarConsultaERecarregar(email, senha, sucesso, erro){
+    var _self=this;
+    _self.autenticarConsulta(email, senha, function(resp){
+      try{ if(resp && resp.sucesso===true && typeof recarregarTelefonesAposLogin==="function") recarregarTelefonesAposLogin(); else if(resp && resp.sucesso===true && typeof carregarTelefones==="function") carregarTelefones(); }catch(e){}
+      if(typeof sucesso==="function") sucesso(resp);
+    }, function(err){
+      if(typeof erro==="function") erro(err);
+    });
+  },
+
+  listarNotificacoes(email, sucesso, erro) {
+    var authDadosN = null;
+    try{
+      var rawN = localStorage.getItem("pjes_consulta_sessao");
+      if(rawN){
+        var sessN = JSON.parse(rawN);
+        if(sessN && sessN.email && sessN.senha) authDadosN = { email: sessN.email, senha: sessN.senha };
+      }
+    }catch(eN){}
+    if(authDadosN && authDadosN.email && authDadosN.senha){
+      criarRunnerAPI(sucesso, erro).listarNotificacoes(email, authDadosN);
+    } else {
+      criarRunnerAPI(sucesso, erro).listarNotificacoes(email);
+    }
+  },
+
+  marcarNotificacaoLida(id, sucesso, erro) {
+    criarRunnerAPI(sucesso, erro)
+      .marcarNotificacaoLida(id);
+  },
+
+  marcarTodasLidas(email, sucesso, erro) {
+    var authDadosT = null;
+    try{
+      var rawT = localStorage.getItem("pjes_consulta_sessao");
+      if(rawT){
+        var sessT = JSON.parse(rawT);
+        if(sessT && sessT.email && sessT.senha) authDadosT = { email: sessT.email, senha: sessT.senha };
+      }
+    }catch(eT){}
+    if(authDadosT && authDadosT.email && authDadosT.senha){
+      criarRunnerAPI(sucesso, erro).marcarTodasLidas(email, authDadosT);
+    } else {
+      criarRunnerAPI(sucesso, erro).marcarTodasLidas(email);
+    }
+  },
+
+  contarNaoLidas(email, sucesso, erro) {
+    var authDadosC = null;
+    try{
+      var rawC = localStorage.getItem("pjes_consulta_sessao");
+      if(rawC){
+        var sessC = JSON.parse(rawC);
+        if(sessC && sessC.email && sessC.senha) authDadosC = { email: sessC.email, senha: sessC.senha };
+      }
+    }catch(eC){}
+    if(authDadosC && authDadosC.email && authDadosC.senha){
+      criarRunnerAPI(sucesso, erro).contarNaoLidas(email, authDadosC);
+    } else {
+      criarRunnerAPI(sucesso, erro).contarNaoLidas(email);
+    }
   }
 };
 

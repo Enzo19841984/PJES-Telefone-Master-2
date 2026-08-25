@@ -438,6 +438,40 @@ function notificarTabela(
   }
 }
 
+function linkGoogleMapsEndereco(texto){
+  var t = String(texto||"").trim();
+  if(!t) return "";
+  return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(t);
+}
+
+function criarCelulaEndereco(endereco){
+  const td = document.createElement("td");
+  td.style.textAlign = "left";
+  td.style.maxWidth = "220px";
+  td.style.wordBreak = "break-word";
+  td.style.fontSize = "12px";
+  const texto = textoTabela(endereco);
+  if (!texto) {
+    const vazio = document.createElement("span");
+    vazio.textContent = "-";
+    vazio.style.color = "#94a3b8";
+    vazio.style.fontWeight = "500";
+    td.appendChild(vazio);
+    return td;
+  }
+  const a = document.createElement("a");
+  a.href = linkGoogleMapsEndereco(texto);
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  a.textContent = texto;
+  a.style.color = "#2563eb";
+  a.style.textDecoration = "none";
+  a.title = "Abrir no Google Maps";
+  a.style.wordBreak = "break-word";
+  td.appendChild(a);
+  return td;
+}
+
 function criarCelulaTexto(
   valor,
   alinhamento
@@ -708,6 +742,30 @@ function criarBotaoTabela(
 function renderizarTabela(
   lista
 ) {
+  try{
+    var _perfRT = (typeof usuarioAtual!=="undefined" && usuarioAtual) ? String(usuarioAtual.perfil||"").toUpperCase() : "";
+    var _isGCRT = !!(typeof usuarioAtual!=="undefined" && usuarioAtual && usuarioAtual.logado===true && _perfRT==="GESTOR_CONTEUDO");
+    var _isGSRT = !!(typeof usuarioAtual!=="undefined" && usuarioAtual && usuarioAtual.logado===true && _perfRT==="GESTOR_SISTEMA");
+    // v3.33 GS usa mapa como GC, mas permite tabela via navegarParaTabelaTelefones() (flag bypass)
+    if(window.__gsTabelaLiberada){
+      try{ window.__gsTabelaLiberada=false; }catch(e){}
+    } else if(_isGCRT || _isGSRT){
+      var _tvRT = document.getElementById("telefones-view");
+      var _cvRT2 = document.getElementById("consulta-telefones-view");
+      // v3.29: só hijacka se estava em telefones-view (evita roubar dashboard/notificações quando GC navega)
+      var _isTelefonesAtiva = _tvRT && !_tvRT.classList.contains("hidden");
+      if(_isTelefonesAtiva){
+        if(_tvRT) _tvRT.classList.add("hidden");
+        if(_cvRT2 && _cvRT2.classList.contains("hidden")){
+          try{ if(typeof mostrarView==="function") mostrarView("consulta-telefones-view"); }catch(e){}
+        }
+      } else {
+        // GC/GS em dashboard/notificações etc: só esconde telefones-view, não força consulta
+        if(_tvRT) _tvRT.classList.add("hidden");
+      }
+      return;
+    }
+  }catch(e){}
   const tbody =
     document.getElementById(
       "corpo-tabela-telefones"
@@ -748,10 +806,8 @@ function renderizarTabela(
     );
 
   if (thAcoes) {
-    thAcoes.style.display =
-      mostrarAcoes
-        ? ""
-        : "none";
+    // v3.32: Histórico para todos — Ações sempre visível
+    thAcoes.style.display = "";
   }
 
   if (
@@ -767,10 +823,7 @@ function renderizarTabela(
         "td"
       );
 
-    td.colSpan =
-      mostrarAcoes
-        ? 9
-        : 8;
+    td.colSpan = 9; // v3.32: Histórico para todos — sempre 9 colunas
 
     td.textContent =
       "Nenhum telefone encontrado.";
@@ -917,10 +970,11 @@ function renderizarTabela(
     );
     tr.appendChild(criarCelulaTexto(email, "left"));
     (function(){ var tdE=tr.lastChild; if(tdE){ tdE.style.maxWidth="180px"; tdE.style.wordBreak="break-word"; tdE.style.fontSize="12px"; } })();
-    tr.appendChild(criarCelulaTexto(endereco, "left"));
+    tr.appendChild(criarCelulaEndereco(endereco));
     (function(){ var tdEnd=tr.lastChild; if(tdEnd){ tdEnd.style.maxWidth="220px"; tdEnd.style.wordBreak="break-word"; tdEnd.style.fontSize="12px"; } })();
 
-    if (mostrarAcoes) {
+    // v3.32: Histórico para todos — Ações sempre visível, Edit/Delete/Solicitar só para Gestor
+    {
       const tdAcoes =
         document.createElement(
           "td"
@@ -952,64 +1006,67 @@ function renderizarTabela(
       grupo.style.flexWrap =
         "wrap";
 
-      if (permitidoEditar) {
-        grupo.appendChild(
-          criarBotaoTabela(
-            "✏️ Editar",
-            "btn-primary",
-            function() {
-              abrirEditarTelefone(
-                id
-              );
-            }
-          )
-        );
-
-        grupo.appendChild(
-          criarBotaoTabela(
-            "🗑️ Excluir",
-            "btn-danger",
-            function() {
-              abrirExcluir(
-                id
-              );
-            }
-          )
-        );
-      } else {
-        const jaSolicitada =
-          comarcaSolicitadaHaPouco(
-            comarca
+      if (mostrarAcoes) {
+        if (permitidoEditar) {
+          grupo.appendChild(
+            criarBotaoTabela(
+              "✏️ Editar",
+              "btn-primary",
+              function() {
+                abrirEditarTelefone(
+                  id
+                );
+              }
+            )
           );
 
-        const botaoSolicitar =
-          criarBotaoTabela(
-            jaSolicitada
-              ? "✓ Solicitado"
-              : "🔓 Solicitar acesso",
-            "btn-secondary",
-            function() {
-              solicitarAcessoComarca(
-                comarca,
-                botaoSolicitar
-              );
-            }
+          grupo.appendChild(
+            criarBotaoTabela(
+              "🗑️ Excluir",
+              "btn-danger",
+              function() {
+                abrirExcluir(
+                  id
+                );
+              }
+            )
           );
+        } else {
+          const jaSolicitada =
+            comarcaSolicitadaHaPouco(
+              comarca
+            );
 
-        botaoSolicitar.title =
-          "Você só pode editar telefones das suas comarcas. Solicite acesso a esta comarca.";
+          const botaoSolicitar =
+            criarBotaoTabela(
+              jaSolicitada
+                ? "✓ Solicitado"
+                : "🔓 Solicitar acesso",
+              "btn-secondary",
+              function() {
+                solicitarAcessoComarca(
+                  comarca,
+                  botaoSolicitar
+                );
+              }
+            );
 
-        botaoSolicitar.disabled =
-          jaSolicitada;
+          botaoSolicitar.title =
+            "Você só pode editar telefones das suas comarcas. Solicite acesso a esta comarca.";
 
-        botaoSolicitar.style.fontSize =
-          "11px";
+          botaoSolicitar.disabled =
+            jaSolicitada;
 
-        grupo.appendChild(
-          botaoSolicitar
-        );
+          botaoSolicitar.style.fontSize =
+            "11px";
+
+          grupo.appendChild(
+            botaoSolicitar
+          );
+        }
       }
 
+      // Histórico sempre visível para todos os níveis
       grupo.appendChild(
         criarBotaoTabela(
           "📜 Histórico",
@@ -2225,4 +2282,49 @@ function alternarOrdemHistorico(ordem) {
   renderizarTabelaHistorico(historicoDadosCache, ordemHistoricoAtual);
 }
 
+
+// v3.32 GC detalhes layout — agrupamento compartilhado com ConsultarJS.html (telefone/email/endereco separados)
+if(typeof agruparContatosDoSetor==="undefined"){
+function agruparContatosDoSetor(registros){
+  const resultado={ telefones:[], ramais:[], whatsapps:[], emails:[], enderecos:[] };
+  const vistos={ telefones:new Set(), ramais:new Set(), whatsapps:new Set(), emails:new Set(), enderecos:new Set() };
+  function contatoPreenchido(v){ var s=String(v||"").trim(); return s!=="" && s!=="-" && s!=="\u2013" && s!=="\u2014"; }
+  function _getCampo(item, nomes){ try{ if(typeof campoTelefone==="function") return campoTelefone(item, nomes); }catch(e){} try{ if(typeof valorCampoTelefone==="function"){ for(var _ii=0;_ii<nomes.length;_ii++){ var _vv=valorCampoTelefone(item, nomes[_ii]); if(String(_vv||"").trim()) return _vv; } return ""; } }catch(e2){} return ""; }
+  function adicionar(tipo, valor){
+    var texto=String(valor||"").trim(); if(!contatoPreenchido(texto)) return;
+    let partes=[texto];
+    if(tipo!=="enderecos"){
+      if(/[,;\n]/.test(texto)){
+        partes=texto.split(/[,;\n]+/).map(function(s){ return String(s||"").trim(); }).filter(contatoPreenchido);
+        if(tipo==="telefones"||tipo==="ramais"||tipo==="whatsapps"){
+          let exp=[]; partes.forEach(function(p){ if(p.indexOf("/")!==-1){ p.split("/").forEach(function(sub){ let t=String(sub||"").trim(); if(contatoPreenchido(t)) exp.push(t); }); } else exp.push(p); }); partes=exp;
+        }
+      } else if((tipo==="telefones"||tipo==="ramais"||tipo==="whatsapps") && texto.indexOf("/")!==-1){
+        partes=texto.split("/").map(function(s){ return String(s||"").trim(); }).filter(contatoPreenchido);
+      }
+    }
+    partes.forEach(function(part){
+      var t=String(part||"").trim(); if(!contatoPreenchido(t) || vistos[tipo].has(t)) return; vistos[tipo].add(t); resultado[tipo].push(t);
+    });
+  }
+  (Array.isArray(registros)?registros:[]).forEach(function(registro){
+    adicionar("telefones", _getCampo(registro, ["telefone","TELEFONE","numero","NUMERO"]));
+    adicionar("ramais", _getCampo(registro, ["ramal","RAMAL"]));
+    adicionar("whatsapps", _getCampo(registro, ["whatsapp","WHATSAPP","WhatsApp"]));
+    adicionar("emails", _getCampo(registro, ["email","EMAIL","E-MAIL","E_MAIL"]));
+    adicionar("enderecos", _getCampo(registro, ["endereco","ENDERECO","Endere\u00e7o"]));
+  });
+  return resultado;
+}
+}
+// v3.32 GC detalhes layout — aliases para Testes/verificacao e delegacao ao ConsultarJS.html
+// ConsultarJS.html renderizarDetalhes ja implementa: endereco e e-mail(s) embaixo do setor com botoes Editar/Excluir, e abaixo cada Telefone/Ramal/WhatsApp com botoes (nao repetir).
+// TableJS expoe wrapper para compatibilidade quando ConsultarJS nao estiver carregado (ex.: testes isolados).
+if(typeof renderizarDetalhesGC==="undefined"){
+function renderizarDetalhesGC(comarca, setor, registros){
+  if(typeof renderizarDetalhes==="function") return renderizarDetalhes(comarca, setor, registros);
+  console.warn("renderizarDetalhesGC: ConsultarJS.renderizarDetalhes nao disponivel");
+  return null;
+}
+}
 </script>

@@ -2,8 +2,10 @@
 /**
  * ==========================================================
  * SISTEMA DE TELEFONES TJES
- * Arquivo: RegistroAlteracoesJS.html
+ * Arquivo: RegistroAlteracoesJS.html v3.32 - GC por comarca
  * ==========================================================
+ * v3.32: GC vê apenas histórico de suas comarcas; sem registro
+ *        exibe "Não há alterações" em vez de "Faça login...".
  */
 
 function carregarRegistroAlteracoes() {
@@ -17,11 +19,34 @@ function carregarRegistroAlteracoes() {
       '<p style="text-align:center;">Carregando histórico...</p>' +
     '</div>';
 
-  google.script.run
+  let authDadosHist = null;
+  try {
+    const rawHist = localStorage.getItem("pjes_consulta_sessao");
+    if (rawHist) {
+      const sessHist = JSON.parse(rawHist);
+      if (sessHist && sessHist.email && sessHist.senha) authDadosHist = { email: sessHist.email, senha: sessHist.senha };
+    }
+  } catch (eHist) {}
+
+  const runner = google.script.run
     .withSuccessHandler(res => {
       if (res?.sucesso) {
         renderizarHistoricoGeral(res.dados || []);
       } else {
+        const msgRawHist = String(res?.erro || "");
+        const msgLowerHist = msgRawHist.toLowerCase();
+        const ehLoginHist = msgLowerHist.indexOf("fa\u00e7a login") !== -1 || msgLowerHist.indexOf("acesso administrativo") !== -1 || msgLowerHist.indexOf("precisa estar autenticado") !== -1;
+        // v3.32: GC sem histórico nas suas comarcas não deve ver erro de login, mas mensagem de vazio
+        const ehGC = (typeof usuarioAtual !== "undefined" && usuarioAtual && String(usuarioAtual.perfil || "").toUpperCase() === "GESTOR_CONTEUDO");
+        if (ehLoginHist && ehGC) {
+          renderizarHistoricoGeral([]);
+          return;
+        }
+        if (ehLoginHist) {
+          // GC via senha ainda não refletiu em google session: tenta tratar como vazio
+          const temAuthHist = !!(authDadosHist && authDadosHist.email);
+          if (temAuthHist) { renderizarHistoricoGeral([]); return; }
+        }
         container.innerHTML =
           '<div class="panel">' +
             '<p style="color:#dc2626;">Erro: ' +
@@ -31,6 +56,10 @@ function carregarRegistroAlteracoes() {
       }
     })
     .withFailureHandler(erro => {
+      const msgRawF = String(erro?.message || "");
+      const ehLoginF = msgRawF.toLowerCase().indexOf("fa\u00e7a login") !== -1;
+      const ehGC2 = (typeof usuarioAtual !== "undefined" && usuarioAtual && String(usuarioAtual.perfil || "").toUpperCase() === "GESTOR_CONTEUDO");
+      if (ehLoginF && ehGC2) { renderizarHistoricoGeral([]); return; }
       container.innerHTML =
         '<div class="panel">' +
           '<p style="color:#dc2626;">' +
@@ -40,8 +69,12 @@ function carregarRegistroAlteracoes() {
             ) +
           '</p>' +
         '</div>';
-    })
-    .listarHistoricoGeral();
+    });
+  if (authDadosHist && authDadosHist.email && authDadosHist.senha) {
+    runner.listarHistoricoGeral(authDadosHist);
+  } else {
+    runner.listarHistoricoGeral();
+  }
 }
 
 function interpretarHistorico(valor) {
@@ -290,9 +323,11 @@ function renderizarHistoricoGeral(dados) {
       '</div>';
 
   if (vazio) {
+    const ehGCvazio = (typeof usuarioAtual !== "undefined" && usuarioAtual && String(usuarioAtual.perfil || "").toUpperCase() === "GESTOR_CONTEUDO");
+    const msgVazio = ehGCvazio ? "N\u00e3o h\u00e1 altera\u00e7\u00f5es para suas comarcas." : "N\u00e3o h\u00e1 altera\u00e7\u00f5es.";
     html +=
       '<p class="registro-vazio">' +
-        'Nenhuma alteração registrada.' +
+        msgVazio +
       '</p>';
   }
 
