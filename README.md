@@ -1,77 +1,77 @@
-# Sistema Inteligente de Gestão de Telefones do PJES
+# Sistema Inteligente de Gestão de Contatos do PJES
 
-Sistema Web App do **Poder Judiciário do Estado do Espírito Santo (TJES)** para gestão e consulta da base de telefones (comarcas, setores e contatos), construído sobre **Google Apps Script + Google Sheets**.
+Sistema Web App do **Poder Judiciário do Estado do Espírito Santo (TJES)** para consulta e gestão de contatos institucionais, construído com **Google Apps Script + Google Sheets**.
 
-## Funcionalidades
+## Arquitetura atual
 
-- **Consulta pública** de telefones por microrregião, comarca e setor (com mapa do ES, links `tel:`, `wa.me` e `mailto:`)
-- **Dashboard** com totais de contatos, setores e tipos
-- **Gestão administrativa** (CRUD) da base de telefones, com histórico de alterações
-- **Acesso por cargo (versão única)**: o login é feito pela conta Google. Quem possui perfil ativo na aba `USUARIOS` — `GESTOR_SISTEMA` ou `GESTOR_CONTEUDO` — entra automaticamente no cargo; quem não tem, permanece como visitante e pode solicitar acesso
-- **Gestor de Conteúdo limitado a comarcas**: a coluna `COMARCAS` da aba `USUARIOS` restringe o gestor a editar somente as comarcas listadas (vazia = todas); a restrição é aplicada na API e na consulta
-- **Painel de Usuários** (somente Gestor do Sistema): altera perfil (Gestor do Sistema / Gestor de Conteúdo / Visitante), ativa/desativa contas e define as comarcas dos gestores de conteúdo
-- **Solicitações de acesso**: aba *Formulário de Acesso* na sidebar (nome, comarca, e-mail, perfil solicitado e justificativa) grava na aba *Solicitações de Acesso do sistema* com status `PENDENTE`; o Gestor do Sistema aprova ou rejeita
-- **Notificações por e-mail** (fila em `EMAILS_PENDENTES` processada por gatilho)
-- Modo escuro, impressão/PDF da consulta e versão exibida na sidebar
+```text
+MUNICIPIOS
+    ↓
+FORUM
+    ↓
+UNIDADES
+    ↓
+SETORES
+    ↓
+CONTATOS
+```
 
-## Perfis
+A aba `TELEFONES` não faz parte da arquitetura operacional e não deve ser recriada.
 
-| Perfil | Acesso |
-|---|---|
-| `GESTOR_SISTEMA` | Tudo: edita qualquer telefone, aprova solicitações e gerencia usuários |
-| `GESTOR_CONTEUDO` | Edita telefones; limitado às comarcas da coluna `COMARCAS`, se preenchida |
-| `USUARIO_CONSULTA` (visitante) | Somente consulta |
+## Regras principais
 
-## Estrutura do projeto
+- Município pode possuir um ou vários Fóruns.
+- Município com um único Fórum pode abrir diretamente o Fórum na consulta.
+- Fórum possui endereço, e-mail e contatos gerais próprios.
+- Unidade pertence a um Fórum e pode possuir endereço/e-mail próprios.
+- Telefones, ramais e WhatsApps pertencem aos setores quando a fonte indicar isso.
+- E-mail e endereço são herdados para visualização quando não houver dado próprio.
+- Contatos podem estar diretamente vinculados ao Fórum ou, quando previsto pelo schema, diretamente à Unidade.
+- A ordem funcional deve respeitar `ORDEM`; quando ausente, preserva-se a ordem física da planilha.
+- `Protocolo • Distribuição` permanece como uma única entidade quando assim estiver na fonte.
 
-| Arquivo | Finalidade |
-|---|---|
-| `Main.gs` | Roteamento do Web App (versão única) |
-| `01_Config.gs` | Configurações centrais (URL, abas, perfis, limites) |
-| `02_Utils.gs` | Utilitários (normalização, comarcas, datas) |
-| `03_Database.gs` | Acesso à planilha vinculada |
-| `04_TelefoneRepository.gs` | CRUD da base TELEFONES |
-| `05_HistoryService.gs` | Histórico de alterações |
-| `06_ValidationService.gs` | Validação de telefones |
-| `07_IdService.gs` | Geração de IDs |
-| `08_CacheService.gs` | Cache de listagens |
-| `09_LogService.gs` | Log de erros/operações |
-| `10_AuthService.gs` | Autenticação (conta Google) e permissões |
-| `11_API.gs` | Funções expostas ao frontend (`google.script.run`) |
-| `12_Install.gs` | Instalação/migração das abas |
-| `*.html` | Telas e scripts do frontend |
+## Consulta pública
 
-## Implantação (versão única)
+O mapa responsivo do Espírito Santo permanece na consulta. No desktop ele integra o layout; no mobile é apresentado no topo. A navegação é Município → Fórum → Unidade → Setor → Contato, com busca por unidade, setor, telefone, ramal, WhatsApp e e-mail.
 
-1. Crie um projeto no [Google Apps Script](https://script.google.com) vinculado à planilha do sistema (Extensões → Apps Script).
-2. Copie todos os arquivos `.gs` (sem a extensão `.txt` do repositório) e `.html` para o projeto.
-3. No editor, execute na ordem:
-   - `registrarPlanilhaVinculada()` — vincula a planilha ativa;
-   - `instalarSistema()` — cria as abas e cabeçalhos (inclui `COMARCA` em *Solicitações de Acesso do sistema* e `COMARCAS` em `USUARIOS`);
-   - `autorizar()` — concede as autorizações de planilha e e-mail;
-   - `instalarTriggerEmails()` — instala o gatilho que processa a fila de e-mails (a cada minuto).
-4. Ajuste `CONFIG.WEB_APP.URL_PUBLICA` para a URL real da implantação.
-5. Publique: **Implantar → Nova implantação → Aplicativo da web**:
-   - *Executar como*: **Eu (conta do deployer)**;
-   - *Quem pode acessar*: **Qualquer pessoa com conta Google** (`ANYONE` no `appsscript.json`).
-   - ⚠️ É essencial que o acesso seja "Qualquer pessoa com conta Google" (não anônimo): é isso que permite ao sistema identificar a conta ativa e aplicar os cargos automaticamente.
-6. **Remova/ignore implantações antigas** (a antiga "URL privada" servia uma versão antiga do sistema — o motivo dos erros de versão e mapa). Com a versão única, há somente uma URL e uma versão.
-7. Em instalações antigas, as colunas novas podem ser adicionadas executando apenas:
-   - `atualizarAbaSolicitacoesAcesso()` (coluna `COMARCA`);
-   - `instalarSistema()` (também garante `COMARCAS` em `USUARIOS`).
+## Backend e compatibilidade
 
-## Abas da planilha
+O frontend mantém os nomes históricos de API para evitar regressões, mas `APIJS.html` agora direciona os caminhos de listagem, pesquisa, CRUD, histórico, usuário e dashboard para a integração V4 em `16_ForumV4Integration.gs`.
 
-- `TELEFONES` — ID, MICRORREGIAO, COMARCA, SETOR, TIPO, TELEFONE, RAMAL, WHATSAPP, E-MAIL, ENDERECO, STATUS, OBSERVACAO, DATA_CRIACAO, DATA_ATUALIZACAO
-- `USUARIOS` — EMAIL, NOME, PERFIL, ATIVO, COMARCAS (lista separada por vírgula; vazia = todas)
-- `Solicitações de Acesso do sistema` — ID, EMAIL, NOME, COMARCA, PERFIL_SOLICITADO, JUSTIFICATIVA, STATUS, DATA_SOLICITACAO, APROVADOR, DATA_APROVACAO (aceita também a aba legada `SOLICITACOES_ACESSO`)
-- `CONFIGURACAO` — CHAVE, VALOR (ex.: `EMAIL_GESTOR`)
-- `HISTORICO`, `LOG`, `EMAILS_PENDENTES`
+Essa camada opera diretamente sobre `CONTATOS` e usa `FORUM_ID`, `UNIDADE_ID` e `SETOR_ID`, preservando contatos diretos do Fórum e a herança de endereço/e-mail.
 
-## Segurança
+A autenticação de usuários continua baseada na conta Google e na aba `USUARIOS`, com `NIVEL` convertido para o perfil do sistema. O escopo de gestores de conteúdo é resolvido por `ACESSOS_UNIDADES` quando houver vínculos ativos.
 
-- Consulta liberada para qualquer pessoa com conta Google.
-- Ações administrativas exigem cargo ativo em `USUARIOS` (sem cadastro automático).
-- Gestor de Conteúdo restrito a comarcas só enxerga e edita as próprias comarcas (validação no servidor).
-- O Gestor do Sistema não pode editar a própria conta pelo painel e o sistema impede remover o último gestor do sistema ativo.
-- Todas as escritas usam `LockService` para evitar concorrência.
+## Abas principais
+
+- `MUNICIPIOS`
+- `FORUM`
+- `UNIDADES`
+- `SETORES`
+- `CONTATOS`
+- `USUARIOS`
+- `ACESSOS_UNIDADES`
+- `TELEFONES_UTEIS`
+- `HISTORICO`
+- `LOG`
+- `CONFIGURACAO`
+- `NOTIFICACOES`
+- `Solicitações de Acesso do sistema`
+
+## Instalação e validação
+
+1. `registrarPlanilhaVinculada()` — vincula a planilha ativa.
+2. `instalarSistemaForum()` — garante o schema V4 sem criar `TELEFONES`.
+3. `validarIntegridadeForumV4()` — valida estrutura/IDs.
+4. `validarDadosReaisForumV4()` — valida a planilha vinculada, sem alterar dados:
+   - abas obrigatórias;
+   - ausência de `TELEFONES`;
+   - IDs duplicados;
+   - referências `FORUM_ID`, `UNIDADE_ID` e `SETOR_ID` válidas;
+   - contatos órfãos.
+
+A verificação de conteúdo contra o PDF e a planilha `(6)` deve continuar sendo feita contra os arquivos oficiais antes de qualquer correção de dados. Nesta execução, o arquivo `(6).xlsx` estava disponível como anexo no ambiente, mas não pôde ser lido pelo parser disponível; por isso não foi declarado um cruzamento linha a linha do workbook.
+
+## Deploy
+
+O projeto continua sendo sincronizado para o Google Apps Script via `clasp`. Após atualizar sua cópia local, execute `clasp push` e então as rotinas de instalação/validação no projeto vinculado à planilha real.

@@ -4,239 +4,75 @@
  * SISTEMA DE TELEFONES TJES
  * Arquivo: APIJS.html
  * ==========================================================
+ * API de compatibilidade: os nomes antigos permanecem para não
+ * quebrar o frontend, mas os caminhos de dados agora apontam para
+ * MUNICIPIOS -> FORUM -> UNIDADES -> SETORES -> CONTATOS.
  */
 
 function criarRunnerAPI(sucesso, erro) {
   let runner = google.script.run.withSuccessHandler(typeof sucesso === "function" ? sucesso : function () {});
-
-  if (typeof erro === "function") {
-    runner = runner.withFailureHandler(erro);
-  } else {
-    runner = runner.withFailureHandler(function (falha) {console.error("Erro na comunicação com o servidor:", falha);});
-  }
-
+  if (typeof erro === "function") runner = runner.withFailureHandler(erro);
+  else runner = runner.withFailureHandler(function (falha) { console.error("Erro na comunicação com o servidor:", falha); });
   return runner;
 }
 
 const API = {
-  usuarioAtual(sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .obterUsuarioAtual();
-  },
-
-  dashboard(sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .carregarDashboard();
-  },
-
-  listarTelefones(sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .listarTelefones();
-  },
-
-  listarComarcas(sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .listarComarcas();
-  },
-
-  pesquisarTelefones(texto, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .pesquisarTelefones(texto);
-  },
-
-  criarTelefone(dados, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .criarTelefone(dados);
-  },
-
-  atualizarTelefone(id, dados, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .atualizarTelefone(id, dados);
-  },
-
-  excluirTelefone(id, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .excluirTelefone(id);
-  },
-
-  historico(id, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .listarHistorico(id);
-  },
+  usuarioAtual(sucesso, erro) { criarRunnerAPI(sucesso, erro).v4ObterUsuarioAtual(); },
+  dashboard(sucesso, erro) { criarRunnerAPI(sucesso, erro).v4CarregarDashboard(); },
+  listarTelefones(sucesso, erro) { criarRunnerAPI(sucesso, erro).v4ListarContatos(); },
+  listarComarcas(sucesso, erro) { criarRunnerAPI(sucesso, erro).v4ListarMunicipios(); },
+  pesquisarTelefones(texto, sucesso, erro) { criarRunnerAPI(sucesso, erro).v4PesquisarContatos(texto); },
+  criarTelefone(dados, sucesso, erro) { criarRunnerAPI(sucesso, erro).v4CriarContato(dados); },
+  atualizarTelefone(id, dados, sucesso, erro) { criarRunnerAPI(sucesso, erro).v4AtualizarContato(id, dados); },
+  excluirTelefone(id, sucesso, erro) { criarRunnerAPI(sucesso, erro).v4ExcluirContato(id); },
+  historico(id, sucesso, erro) { criarRunnerAPI(sucesso, erro).v4HistoricoContato(id); },
 
   solicitarAcesso(nome, perfil, justificativa, comarca, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .solicitarAcesso(nome, perfil, justificativa, comarca);
+    criarRunnerAPI(sucesso, erro).solicitarAcesso(nome, perfil, justificativa, comarca);
   },
+  enviarFormularioAcesso(dados, sucesso, erro) { criarRunnerAPI(sucesso, erro).enviarFormularioAcesso(dados); },
+  listarSolicitacoes(sucesso, erro) { criarRunnerAPI(sucesso, erro).listarSolicitacoes(); },
+  contarSolicitacoesPendentes(sucesso, erro) { criarRunnerAPI(sucesso, erro).contarSolicitacoesPendentes(); },
+  aprovarSolicitacao(id, sucesso, erro) { criarRunnerAPI(sucesso, erro).aprovarSolicitacao(id); },
+  rejeitarSolicitacao(id, sucesso, erro) { criarRunnerAPI(sucesso, erro).rejeitarSolicitacao(id); },
 
-  enviarFormularioAcesso(dados, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .enviarFormularioAcesso(dados);
-  },
-
-  listarSolicitacoes(sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .listarSolicitacoes();
-  },
-
-  contarSolicitacoesPendentes(sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .contarSolicitacoesPendentes();
-  },
-
-  aprovarSolicitacao(id, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .aprovarSolicitacao(id);
-  },
-
-  rejeitarSolicitacao(id, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .rejeitarSolicitacao(id);
-  },
-
+  // Compatibilidade para componentes antigos de solicitação/permissão.
   solicitarPermissaoComarca(comarca, sucesso, erro) {
-    var authDados = null;
-    try{
-      var raw = localStorage.getItem("pjes_consulta_sessao");
-      if(raw){
-        var sess = JSON.parse(raw);
-        if(sess && sess.email && sess.senha){
-          authDados = { email: sess.email, senha: sess.senha };
-        } else if(sess && sess.email){
-          // fallback: tenta pegar senha do campo se visível
-          var elS = document.getElementById("login-senha");
-          var sVal = elS ? String(elS.value||"").trim() : "";
-          if(sVal) authDados = { email: sess.email, senha: sVal };
-        }
-      }
-    }catch(e){}
-    if(authDados && authDados.email && authDados.senha){
-      criarRunnerAPI(sucesso, erro)
-        .solicitarPermissaoComarca(comarca, authDados);
-    } else {
-      criarRunnerAPI(sucesso, erro)
-        .solicitarPermissaoComarca(comarca);
-    }
+    criarRunnerAPI(sucesso, erro).solicitarPermissaoComarca(comarca);
   },
-
   cancelarSolicitacaoComarca(comarca, sucesso, erro) {
-    var authDados2 = null;
-    try{
-      var raw2 = localStorage.getItem("pjes_consulta_sessao");
-      if(raw2){
-        var sess2 = JSON.parse(raw2);
-        if(sess2 && sess2.email && sess2.senha){
-          authDados2 = { email: sess2.email, senha: sess2.senha };
-        } else if(sess2 && sess2.email){
-          var elS2 = document.getElementById("login-senha");
-          var sVal2 = elS2 ? String(elS2.value||"").trim() : "";
-          if(sVal2) authDados2 = { email: sess2.email, senha: sVal2 };
-        }
-      }
-    }catch(e2){}
-    if(authDados2 && authDados2.email && authDados2.senha){
-      criarRunnerAPI(sucesso, erro)
-        .cancelarSolicitacaoComarca(comarca, authDados2);
-    } else {
-      criarRunnerAPI(sucesso, erro)
-        .cancelarSolicitacaoComarca(comarca);
-    }
+    criarRunnerAPI(sucesso, erro).cancelarSolicitacaoComarca(comarca);
   },
 
-  listarUsuarios(sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .listarUsuarios();
-  },
-
-  atualizarUsuario(email, dados, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .atualizarUsuario(email, dados);
-  },
-
-  criarUsuario(dados, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .criarUsuario(dados);
-  },
-
-  excluirUsuario(email, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .excluirUsuario(email);
-  },
-
-  logout(sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .encerrarSessao();
-  },
+  listarUsuarios(sucesso, erro) { criarRunnerAPI(sucesso, erro).listarUsuarios(); },
+  atualizarUsuario(email, dados, sucesso, erro) { criarRunnerAPI(sucesso, erro).atualizarUsuario(email, dados); },
+  criarUsuario(dados, sucesso, erro) { criarRunnerAPI(sucesso, erro).criarUsuario(dados); },
+  excluirUsuario(email, sucesso, erro) { criarRunnerAPI(sucesso, erro).excluirUsuario(email); },
+  logout(sucesso, erro) { criarRunnerAPI(sucesso, erro).encerrarSessao(); },
 
   autenticarConsulta(email, senha, sucesso, erro) {
-    // v3.32: caller (Login.html fazerLoginConsulta) deve recarregar Telefones apos sucesso via recarregarTelefonesAposLogin/carregarTelefones
-    criarRunnerAPI(sucesso, erro)
-      .autenticarConsulta({ email: email, senha: senha });
+    criarRunnerAPI(sucesso, erro).autenticarConsulta({ email: email, senha: senha });
+  },
+  autenticarConsultaERecarregar(email, senha, sucesso, erro) {
+    this.autenticarConsulta(email, senha, function(resp) {
+      try {
+        if (resp && resp.sucesso === true && typeof recarregarTelefonesAposLogin === "function") recarregarTelefonesAposLogin();
+        else if (resp && resp.sucesso === true && typeof carregarTelefones === "function") carregarTelefones();
+      } catch (e) {}
+      if (typeof sucesso === "function") sucesso(resp);
+    }, erro);
   },
 
-  // v3.32 helper: autenticar e ja recarregar aba Telefones (uso opcional)
-  autenticarConsultaERecarregar(email, senha, sucesso, erro){
-    var _self=this;
-    _self.autenticarConsulta(email, senha, function(resp){
-      try{ if(resp && resp.sucesso===true && typeof recarregarTelefonesAposLogin==="function") recarregarTelefonesAposLogin(); else if(resp && resp.sucesso===true && typeof carregarTelefones==="function") carregarTelefones(); }catch(e){}
-      if(typeof sucesso==="function") sucesso(resp);
-    }, function(err){
-      if(typeof erro==="function") erro(err);
-    });
-  },
+  // Método explícito da nova arquitetura para telas novas.
+  hierarquiaForum(termo, sucesso, erro) { criarRunnerAPI(sucesso, erro).obterHierarquiaPublicaForum(termo || ""); },
+  pesquisarHierarquiaForum(termo, sucesso, erro) { criarRunnerAPI(sucesso, erro).pesquisarHierarquiaPublicaForum(termo || ""); },
+  validarArquiteturaForum(sucesso, erro) { criarRunnerAPI(sucesso, erro).validarArquiteturaForum(); },
+  validarDadosReaisForumV4(sucesso, erro) { criarRunnerAPI(sucesso, erro).validarDadosReaisForumV4(); },
 
-  listarNotificacoes(email, sucesso, erro) {
-    var authDadosN = null;
-    try{
-      var rawN = localStorage.getItem("pjes_consulta_sessao");
-      if(rawN){
-        var sessN = JSON.parse(rawN);
-        if(sessN && sessN.email && sessN.senha) authDadosN = { email: sessN.email, senha: sessN.senha };
-      }
-    }catch(eN){}
-    if(authDadosN && authDadosN.email && authDadosN.senha){
-      criarRunnerAPI(sucesso, erro).listarNotificacoes(email, authDadosN);
-    } else {
-      criarRunnerAPI(sucesso, erro).listarNotificacoes(email);
-    }
-  },
-
-  marcarNotificacaoLida(id, sucesso, erro) {
-    criarRunnerAPI(sucesso, erro)
-      .marcarNotificacaoLida(id);
-  },
-
-  marcarTodasLidas(email, sucesso, erro) {
-    var authDadosT = null;
-    try{
-      var rawT = localStorage.getItem("pjes_consulta_sessao");
-      if(rawT){
-        var sessT = JSON.parse(rawT);
-        if(sessT && sessT.email && sessT.senha) authDadosT = { email: sessT.email, senha: sessT.senha };
-      }
-    }catch(eT){}
-    if(authDadosT && authDadosT.email && authDadosT.senha){
-      criarRunnerAPI(sucesso, erro).marcarTodasLidas(email, authDadosT);
-    } else {
-      criarRunnerAPI(sucesso, erro).marcarTodasLidas(email);
-    }
-  },
-
-  contarNaoLidas(email, sucesso, erro) {
-    var authDadosC = null;
-    try{
-      var rawC = localStorage.getItem("pjes_consulta_sessao");
-      if(rawC){
-        var sessC = JSON.parse(rawC);
-        if(sessC && sessC.email && sessC.senha) authDadosC = { email: sessC.email, senha: sessC.senha };
-      }
-    }catch(eC){}
-    if(authDadosC && authDadosC.email && authDadosC.senha){
-      criarRunnerAPI(sucesso, erro).contarNaoLidas(email, authDadosC);
-    } else {
-      criarRunnerAPI(sucesso, erro).contarNaoLidas(email);
-    }
-  }
+  listarNotificacoes(email, sucesso, erro) { criarRunnerAPI(sucesso, erro).listarNotificacoes(email); },
+  marcarNotificacaoLida(id, sucesso, erro) { criarRunnerAPI(sucesso, erro).marcarNotificacaoLida(id); },
+  marcarTodasLidas(email, sucesso, erro) { criarRunnerAPI(sucesso, erro).marcarTodasLidas(email); },
+  contarNaoLidas(email, sucesso, erro) { criarRunnerAPI(sucesso, erro).contarNaoLidas(email); }
 };
 
 </script>
