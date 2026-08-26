@@ -38,7 +38,12 @@ const CONFIG = {
     SOLICITACOES_ACESSO: "Solicitações de Acesso do sistema",
     SOLICITACOES_ACESSO_LEGADO: "SOLICITACOES_ACESSO",
     EMAILS_PENDENTES: "EMAILS_PENDENTES",
-    NOTIFICACOES: "NOTIFICACOES"
+    NOTIFICACOES: "NOTIFICACOES",
+
+    // Identificador legado mantido somente para compatibilidade de código antigo.
+    // A arquitetura V4 não cria, lê nem usa a aba TELEFONES como fonte operacional.
+    TELEFONES: "TELEFONES",
+    TELEFONES_LEGADO: "TELEFONES"
   },
 
   PERFIS: {
