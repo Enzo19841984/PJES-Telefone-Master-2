@@ -56,7 +56,7 @@ Arquivo: index.html
           padding: 24px;
           background: #ffffff;
           border-radius: 12px;
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);"
+          box-shadow: 0 20px 25px -5px rgba(15,23,42,.1), 0 10px 15px -5px rgba(15,23,42,.04);"
       >
         <div style="text-align: center;">
           <div
@@ -75,7 +75,7 @@ Arquivo: index.html
           </div>
 
           <h3 id="titulo-confirmar-exclusao"
-            style=" margin: 0 0 8px; color: #0f172a; font-size: 18px; font-weight: 700;">Excluir telefone</h3>
+            style="margin: 0 0 8px; color: #0f172a; font-size: 18px; font-weight: 700;">Excluir contato</h3>
 
           <p id="msg-confirmar-exclusao" style="margin: 0 0 20px; color: #64748b; font-size: 14px; line-height: 1.5;">
             Tem certeza de que deseja excluir este registro? Esta ação não poderá ser desfeita.
@@ -90,7 +90,6 @@ Arquivo: index.html
           <button type="button" id="btn-confirmar-exclusao-submit" class="btn btn-danger" style="flex: 1;">
             Sim, excluir
           </button>
-
         </div>
       </div>
     </div>
@@ -99,6 +98,7 @@ Arquivo: index.html
     <?!= include("APIJS"); ?>
     <?!= include("ToastJS"); ?>
     <?!= include("ConsultarJS"); ?>
+    <?!= include("ForumNavigationJS"); ?>
     <?!= include("RegistroAlteracoesJS"); ?>
     <?!= include("TableJS"); ?>
     <?!= include("ModalJS"); ?>
@@ -110,5 +110,4 @@ Arquivo: index.html
     <?!= include("AppJS"); ?>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   </body>
-  
 </html>
