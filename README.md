@@ -4,8 +4,6 @@ Sistema Web App do **Poder Judiciário do Estado do Espírito Santo (TJES)** par
 
 ## Arquitetura atual
 
-A fonte operacional segue a hierarquia:
-
 ```text
 MUNICIPIOS
     ↓
@@ -20,7 +18,7 @@ CONTATOS
 
 A aba `TELEFONES` não faz parte da arquitetura operacional e não deve ser recriada.
 
-### Regras principais
+## Regras principais
 
 - Município pode possuir um ou vários Fóruns.
 - Município com um único Fórum pode abrir diretamente o Fórum na consulta.
@@ -29,8 +27,20 @@ A aba `TELEFONES` não faz parte da arquitetura operacional e não deve ser recr
 - Telefones, ramais e WhatsApps pertencem aos setores quando a fonte indicar isso.
 - E-mail e endereço são herdados para visualização quando não houver dado próprio.
 - Contatos podem estar diretamente vinculados ao Fórum ou, quando previsto pelo schema, diretamente à Unidade.
-- A ordem funcional dos registros deve respeitar `ORDEM`; na ausência desse campo, preserva-se a ordem da planilha.
-- `Protocolo • Distribuição` permanece como uma única Unidade quando assim estiver representado na fonte.
+- A ordem funcional deve respeitar `ORDEM`; quando ausente, preserva-se a ordem física da planilha.
+- `Protocolo • Distribuição` permanece como uma única entidade quando assim estiver na fonte.
+
+## Consulta pública
+
+O mapa responsivo do Espírito Santo permanece na consulta. No desktop ele integra o layout; no mobile é apresentado no topo. A navegação é Município → Fórum → Unidade → Setor → Contato, com busca por unidade, setor, telefone, ramal, WhatsApp e e-mail.
+
+## Backend e compatibilidade
+
+O frontend mantém os nomes históricos de API para evitar regressões, mas `APIJS.html` agora direciona os caminhos de listagem, pesquisa, CRUD, histórico, usuário e dashboard para a integração V4 em `16_ForumV4Integration.gs`.
+
+Essa camada opera diretamente sobre `CONTATOS` e usa `FORUM_ID`, `UNIDADE_ID` e `SETOR_ID`, preservando contatos diretos do Fórum e a herança de endereço/e-mail.
+
+A autenticação de usuários continua baseada na conta Google e na aba `USUARIOS`, com `NIVEL` convertido para o perfil do sistema. O escopo de gestores de conteúdo é resolvido por `ACESSOS_UNIDADES` quando houver vínculos ativos.
 
 ## Abas principais
 
@@ -48,25 +58,20 @@ A aba `TELEFONES` não faz parte da arquitetura operacional e não deve ser recr
 - `NOTIFICACOES`
 - `Solicitações de Acesso do sistema`
 
-## Consulta pública
-
-O mapa responsivo do Espírito Santo permanece na consulta. No desktop ele integra o layout; no mobile é apresentado no topo. A navegação principal é Município → Fórum → Unidade → Setor → Contato, com atalho de busca para telefone, ramal, WhatsApp, e-mail, unidade e setor.
-
-## Administração
-
-Os métodos antigos do frontend (`listarTelefones`, `pesquisarTelefones`, `criarTelefone`, `atualizarTelefone`, `excluirTelefone`, `listarHistorico` e `dashboard`) continuam existindo como contratos de compatibilidade, mas agora são roteados pelo `APIJS.html` para a integração V4, que opera em `CONTATOS` e considera `FORUM_ID`.
-
-O arquivo `16_ForumV4Integration.gs` concentra essa ponte e também fornece `validarDadosReaisForumV4()` para diagnóstico da planilha vinculada sem alterar dados.
-
 ## Instalação e validação
 
-1. Vincule a planilha com `registrarPlanilhaVinculada()`.
-2. Execute `instalarSistemaForum()` para garantir as abas/cabeçalhos da arquitetura V4 sem criar `TELEFONES`.
-3. Execute `validarIntegridadeForumV4()` para validação estrutural.
-4. Execute `validarDadosReaisForumV4()` para validação dos registros da planilha vinculada (chaves estrangeiras, IDs, duplicidades de IDs, contatos órfãos e presença indevida da aba `TELEFONES`).
+1. `registrarPlanilhaVinculada()` — vincula a planilha ativa.
+2. `instalarSistemaForum()` — garante o schema V4 sem criar `TELEFONES`.
+3. `validarIntegridadeForumV4()` — valida estrutura/IDs.
+4. `validarDadosReaisForumV4()` — valida a planilha vinculada, sem alterar dados:
+   - abas obrigatórias;
+   - ausência de `TELEFONES`;
+   - IDs duplicados;
+   - referências `FORUM_ID`, `UNIDADE_ID` e `SETOR_ID` válidas;
+   - contatos órfãos.
 
-A validação do conteúdo do catálogo/PDF continua sendo uma etapa de dados e deve ser feita contra as fontes oficiais antes de alterações nos registros.
+A verificação de conteúdo contra o PDF e a planilha `(6)` deve continuar sendo feita contra os arquivos oficiais antes de qualquer correção de dados. Nesta execução, o arquivo `(6).xlsx` estava disponível como anexo no ambiente, mas não pôde ser lido pelo parser disponível; por isso não foi declarado um cruzamento linha a linha do workbook.
 
 ## Deploy
 
-O projeto continua sendo distribuído via `clasp`/Google Apps Script. Depois de sincronizar a branch, faça o `clasp push` e execute as funções de instalação/validação no projeto Apps Script ligado à planilha real.
+O projeto continua sendo sincronizado para o Google Apps Script via `clasp`. Após atualizar sua cópia local, execute `clasp push` e então as rotinas de instalação/validação no projeto vinculado à planilha real.
