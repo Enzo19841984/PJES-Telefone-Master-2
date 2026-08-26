@@ -67,6 +67,7 @@ function validarIntegridadeForumV4() {
   const problemas = [];
 
   if (diag.abasAusentes.length) problemas.push("Aba obrigatória ausente: " + diag.abasAusentes.join(", "));
+  if (diag.possuiTELEFONES) problemas.push("A aba TELEFONES ainda existe; ela não deve fazer parte da operação V4.");
 
   const contato = DB.contatosOuNulo();
   const setor = DB.setoresOuNulo();
