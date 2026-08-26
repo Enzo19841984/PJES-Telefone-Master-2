@@ -388,52 +388,310 @@ function v4HistoricoContato(id) {
 
 function validarDadosReaisForumV4() {
   const ss = DB.getSpreadsheet();
-  const obrigatorias = [CONFIG.SHEETS.MUNICIPIOS, CONFIG.SHEETS.FORUM, CONFIG.SHEETS.UNIDADES, CONFIG.SHEETS.SETORES, CONFIG.SHEETS.CONTATOS];
-  const ausentes = obrigatorias.filter(n => !ss.getSheetByName(n));
-  const possuiTELEFONES = !!ss.getSheetByName("TELEFONES");
-  const problemas = [];
-  const ids = (sheet, campo) => {
-    if (!sheet) return [];
-    const m = DB.map(sheet); const i = m[normalizarChave(campo)];
-    return DB.read(sheet).map(r => textoSeguro(i ? r[i-1] : "")).filter(Boolean);
-  };
-  const duplicados = lista => { const s = new Set(), d = []; lista.forEach(x => s.has(x) ? d.push(x) : s.add(x)); return d; };
-  obrigatorias.forEach(n => { if (!ss.getSheetByName(n)) problemas.push("Aba ausente: " + n); });
-  if (possuiTELEFONES) problemas.push("Aba TELEFONES ainda existe.");
 
-  const mun = DB.municipiosOuNulo(), forum = DB.forumOuNulo(), uni = DB.unidadesOuNulo(), set = DB.setoresOuNulo(), con = DB.contatosOuNulo();
-  [["MUNICIPIO",mun],["FORUM",forum],["UNIDADE",uni],["SETOR",set],["CONTATO",con]].forEach(pair => {
-    const d = duplicados(ids(pair[1], "ID")); if (d.length) problemas.push(pair[0] + " IDs duplicados: " + d.join(", "));
+  const obrigatorias = [
+    CONFIG.SHEETS.MUNICIPIOS,
+    CONFIG.SHEETS.FORUM,
+    CONFIG.SHEETS.UNIDADES,
+    CONFIG.SHEETS.SETORES,
+    CONFIG.SHEETS.CONTATOS
+  ];
+
+  const ausentes = obrigatorias.filter(
+    n => !ss.getSheetByName(n)
+  );
+
+  const problemas = [];
+
+  obrigatorias.forEach(function(nome) {
+    if (!ss.getSheetByName(nome)) {
+      problemas.push("Aba ausente: " + nome);
+    }
+  });
+
+  const ids = function(sheet, campo) {
+    if (!sheet) return [];
+
+    const mapa = DB.map(sheet);
+    const idx = mapa[normalizarChave(campo)];
+
+    return DB.read(sheet)
+      .map(function(linha) {
+        return textoSeguro(
+          idx ? linha[idx - 1] : ""
+        );
+      })
+      .filter(Boolean);
+  };
+
+  const duplicados = function(lista) {
+    const vistos = new Set();
+    const repetidos = [];
+
+    lista.forEach(function(valor) {
+      if (vistos.has(valor)) {
+        repetidos.push(valor);
+      } else {
+        vistos.add(valor);
+      }
+    });
+
+    return repetidos;
+  };
+
+  const municipio = DB.municipiosOuNulo();
+  const forum = DB.forumOuNulo();
+  const unidade = DB.unidadesOuNulo();
+  const setor = DB.setoresOuNulo();
+  const contato = DB.contatosOuNulo();
+
+  [
+    ["MUNICIPIO", municipio],
+    ["FORUM", forum],
+    ["UNIDADE", unidade],
+    ["SETOR", setor],
+    ["CONTATO", contato]
+  ].forEach(function(par) {
+    const repetidos = duplicados(
+      ids(par[1], "ID")
+    );
+
+    if (repetidos.length) {
+      problemas.push(
+        par[0] +
+        " IDs duplicados: " +
+        repetidos.join(", ")
+      );
+    }
   });
 
   if (forum) {
-    const mf = DB.map(forum), fm = new Set(ids(mun, "ID"));
-    DB.read(forum).forEach((r,i) => { const id = textoSeguro(_v4Col(mf,r,["MUNICIPIO_ID"])); if (id && !fm.has(id)) problemas.push("FORUM linha " + (i+2) + " aponta para MUNICIPIO inexistente: " + id); });
-  }
-  if (uni) {
-    const mu = DB.map(uni), fs = new Set(ids(forum,"ID")), ms = new Set(ids(mun,"ID"));
-    DB.read(uni).forEach((r,i) => { const f = textoSeguro(_v4Col(mu,r,["FORUM_ID"])); const m = textoSeguro(_v4Col(mu,r,["MUNICIPIO_ID"])); if (f && !fs.has(f)) problemas.push("UNIDADE linha " + (i+2) + " aponta para FORUM inexistente: " + f); if (m && !ms.has(m)) problemas.push("UNIDADE linha " + (i+2) + " aponta para MUNICIPIO inexistente: " + m); });
-  }
-  if (set) {
-    const ms = DB.map(set), us = new Set(ids(uni,"ID"));
-    DB.read(set).forEach((r,i) => { const u = textoSeguro(_v4Col(ms,r,["UNIDADE_ID"])); if (u && !us.has(u)) problemas.push("SETOR linha " + (i+2) + " aponta para UNIDADE inexistente: " + u); });
-  }
-  if (con) {
-    const mc = DB.map(con), fs = new Set(ids(forum,"ID")), us = new Set(ids(uni,"ID")), ssIds = new Set(ids(set,"ID"));
-    DB.read(con).forEach((r,i) => {
-      const f = textoSeguro(_v4Col(mc,r,["FORUM_ID"])), u = textoSeguro(_v4Col(mc,r,["UNIDADE_ID"])), s = textoSeguro(_v4Col(mc,r,["SETOR_ID"]));
-      if (!f && !u && !s) problemas.push("CONTATO linha " + (i+2) + " não possui vínculo de Fórum/Unidade/Setor.");
-      if (f && !fs.has(f)) problemas.push("CONTATO linha " + (i+2) + " aponta para FORUM inexistente: " + f);
-      if (u && !us.has(u)) problemas.push("CONTATO linha " + (i+2) + " aponta para UNIDADE inexistente: " + u);
-      if (s && !ssIds.has(s)) problemas.push("CONTATO linha " + (i+2) + " aponta para SETOR inexistente: " + s);
+    const mapaForum = DB.map(forum);
+    const municipiosValidos = new Set(
+      ids(municipio, "ID")
+    );
+
+    DB.read(forum).forEach(function(linha, indice) {
+      const municipioId = textoSeguro(
+        _v4Col(
+          mapaForum,
+          linha,
+          ["MUNICIPIO_ID"]
+        )
+      );
+
+      if (
+        municipioId &&
+        !municipiosValidos.has(municipioId)
+      ) {
+        problemas.push(
+          "FORUM linha " +
+          (indice + 2) +
+          " aponta para MUNICIPIO inexistente: " +
+          municipioId
+        );
+      }
     });
   }
 
-  return { ok: problemas.length === 0, problemas, abasAusentes: ausentes, possuiTELEFONES, contagens: {
-    municipios: mun ? DB.count(mun) : 0,
-    foruns: forum ? DB.count(forum) : 0,
-    unidades: uni ? DB.count(uni) : 0,
-    setores: set ? DB.count(set) : 0,
-    contatos: con ? DB.count(con) : 0
-  }};
+  if (unidade) {
+    const mapaUnidade = DB.map(unidade);
+
+    const forunsValidos = new Set(
+      ids(forum, "ID")
+    );
+
+    const municipiosValidos = new Set(
+      ids(municipio, "ID")
+    );
+
+    DB.read(unidade).forEach(function(linha, indice) {
+      const forumId = textoSeguro(
+        _v4Col(
+          mapaUnidade,
+          linha,
+          ["FORUM_ID"]
+        )
+      );
+
+      const municipioId = textoSeguro(
+        _v4Col(
+          mapaUnidade,
+          linha,
+          ["MUNICIPIO_ID"]
+        )
+      );
+
+      if (
+        forumId &&
+        !forunsValidos.has(forumId)
+      ) {
+        problemas.push(
+          "UNIDADE linha " +
+          (indice + 2) +
+          " aponta para FORUM inexistente: " +
+          forumId
+        );
+      }
+
+      if (
+        municipioId &&
+        !municipiosValidos.has(municipioId)
+      ) {
+        problemas.push(
+          "UNIDADE linha " +
+          (indice + 2) +
+          " aponta para MUNICIPIO inexistente: " +
+          municipioId
+        );
+      }
+    });
+  }
+
+  if (setor) {
+    const mapaSetor = DB.map(setor);
+
+    const unidadesValidas = new Set(
+      ids(unidade, "ID")
+    );
+
+    DB.read(setor).forEach(function(linha, indice) {
+      const unidadeId = textoSeguro(
+        _v4Col(
+          mapaSetor,
+          linha,
+          ["UNIDADE_ID"]
+        )
+      );
+
+      if (
+        unidadeId &&
+        !unidadesValidas.has(unidadeId)
+      ) {
+        problemas.push(
+          "SETOR linha " +
+          (indice + 2) +
+          " aponta para UNIDADE inexistente: " +
+          unidadeId
+        );
+      }
+    });
+  }
+
+  if (contato) {
+    const mapaContato = DB.map(contato);
+
+    const forunsValidos = new Set(
+      ids(forum, "ID")
+    );
+
+    const unidadesValidas = new Set(
+      ids(unidade, "ID")
+    );
+
+    const setoresValidos = new Set(
+      ids(setor, "ID")
+    );
+
+    DB.read(contato).forEach(function(linha, indice) {
+      const forumId = textoSeguro(
+        _v4Col(
+          mapaContato,
+          linha,
+          ["FORUM_ID"]
+        )
+      );
+
+      const unidadeId = textoSeguro(
+        _v4Col(
+          mapaContato,
+          linha,
+          ["UNIDADE_ID"]
+        )
+      );
+
+      const setorId = textoSeguro(
+        _v4Col(
+          mapaContato,
+          linha,
+          ["SETOR_ID"]
+        )
+      );
+
+      if (
+        !forumId &&
+        !unidadeId &&
+        !setorId
+      ) {
+        problemas.push(
+          "CONTATO linha " +
+          (indice + 2) +
+          " não possui vínculo de Fórum/Unidade/Setor."
+        );
+      }
+
+      if (
+        forumId &&
+        !forunsValidos.has(forumId)
+      ) {
+        problemas.push(
+          "CONTATO linha " +
+          (indice + 2) +
+          " aponta para FORUM inexistente: " +
+          forumId
+        );
+      }
+
+      if (
+        unidadeId &&
+        !unidadesValidas.has(unidadeId)
+      ) {
+        problemas.push(
+          "CONTATO linha " +
+          (indice + 2) +
+          " aponta para UNIDADE inexistente: " +
+          unidadeId
+        );
+      }
+
+      if (
+        setorId &&
+        !setoresValidos.has(setorId)
+      ) {
+        problemas.push(
+          "CONTATO linha " +
+          (indice + 2) +
+          " aponta para SETOR inexistente: " +
+          setorId
+        );
+      }
+    });
+  }
+
+  return {
+    ok: problemas.length === 0,
+    problemas: problemas,
+    abasAusentes: ausentes,
+    contagens: {
+      municipios: municipio
+        ? DB.count(municipio)
+        : 0,
+
+      foruns: forum
+        ? DB.count(forum)
+        : 0,
+
+      unidades: unidade
+        ? DB.count(unidade)
+        : 0,
+
+      setores: setor
+        ? DB.count(setor)
+        : 0,
+
+      contatos: contato
+        ? DB.count(contato)
+        : 0
+    }
+  };
 }
