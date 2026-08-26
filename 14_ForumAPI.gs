@@ -38,3 +38,13 @@ function validarArquiteturaForum() {
     return respostaErro(erro);
   }
 }
+
+function validarDadosReaisForumV4API() {
+  try {
+    new AuthService().exigirPerfil(CONFIG.PERFIS.GESTOR_SISTEMA);
+    return respostaSucesso(validarDadosReaisForumV4());
+  } catch (erro) {
+    try { registrarErroAPI("VALIDAR_DADOS_REAIS_FORUM_V4", erro); } catch (e) {}
+    return respostaErro(erro);
+  }
+}
